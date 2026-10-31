@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acquisizione Guidata da Foto (OCR) - Memorie di Scena</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Intestazione con pulsante di ritorno -->
+    <header class="main-header" style="padding: 22px 28px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+        <a href="{{ url_for('index') }}" class="btn-annulla" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 18px; padding: 10px 18px;">
+          <span>⬅️ Torna a Memorie di Scena</span>
+        </a>
+        <div style="text-align: center; flex: 1;">
+          <h1 style="font-size: 32px; color: #fff9ed; margin: 0;">📸 Acquisizione Rapida da Foto</h1>
+          <p style="font-size: 17px; color: #ebd6b0; margin: 4px 0 0 0; font-style: italic;">
+            Carica la foto di una copertina o di un frontespizio: il testo verrà letto e potrai comporre la scheda con 1 clic!
+          </p>
+        </div>
+        <div style="width: 140px;"></div>
+      </div>
+    </header>
+
+    <!-- Layout a Due Colonne -->
+    <div class="ocr-layout">
+
+      <!-- ==================================================================
+           COLONNA SINISTRA: FOTO & RIGHE RICONOSCIUTE DALL'OCR
+           ================================================================== -->
+      <section class="ocr-colonna">
+        <h2 class="ocr-colonna-titolo">
+          <span>📷 1. Foto e Testo Riconosciuto</span>
+        </h2>
+
+        <!-- Area Drag & Drop / Caricamento File -->
+        <div class="ocr-dropzone" id="ocrDropzone" onclick="document.getElementById('fileFotoInput').click()">
+          <span class="ocr-dropzone-icon">📸</span>
+          <div class="ocr-dropzone-text">Premi qui per scegliere la foto</div>
+          <div class="ocr-dropzone-subtext">oppure trascina qui l'immagine dal computer (JPEG o PNG)</div>
+          <input type="file" id="fileFotoInput" accept="image/*" style="display: none;" onchange="gestisciCaricamentoFoto(this.files)">
+        </div>
+
+        <!-- Indicatore di avanzamento -->
+        <div class="ocr-loading" id="ocrLoading">
+          <span>⏳ Lettura del testo in corso con la lente d'ingrandimento... attendi un istante.</span>
+        </div>
+
+        <!-- Anteprima dell'immagine caricata -->
+        <div class="ocr-anteprima-box" id="anteprimaBox">
+          <img id="anteprimaImg" src="" alt="Anteprima Foto" class="ocr-anteprima-img">
+          <div style="font-size: 14px; color: #5a3e26; margin-top: 6px;">
+            ✅ Foto caricata con successo! Verrà usata anche come copertina del volume.
+          </div>
+        </div>
+
+        <!-- Riquadro Righe Rilevate -->
+        <div id="sezioneRigheOcr" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <strong style="color: #3b220e; font-size: 19px;">Righe di testo individuate:</strong>
+            <span id="conteggioLinee" style="font-size: 15px; color: #6d4a2b;"></span>
+          </div>
+          <p style="font-size: 15px; color: #624328; margin-bottom: 14px; font-style: italic;">
+            Puoi correggere il testo direttamente nella casella prima di cliccare su uno dei pulsanti per trasferirlo a destra:
+          </p>
+
+          <div class="ocr-linee-container" id="contenitoreLineeOcr">
+            <!-- Riempito dinamicamente da JavaScript -->
+          </div>
+        </div>
+
+        <div id="messaggioInizialeOcr" style="text-align: center; color: #6d4b2e; padding: 30px 10px; font-style: italic;">
+          Nessuna foto ancora caricata.<br>Premi sul riquadro in alto per selezionare una fotografia dal tuo computer.
+        </div>
+      </section>
+
+
+      <!-- ==================================================================
+           COLONNA DESTRA: MODULO DI INSERIMENTO SCHEDA
+           ================================================================== -->
+      <section class="ocr-colonna">
+        <h2 class="ocr-colonna-titolo">
+          <span>📋 2. Scheda da Salvare nell'Archivio</span>
+        </h2>
+
+        <form action="{{ url_for('crea_elemento') }}" method="POST" id="formSalvaOcr">
+          
+          <!-- Percorso copertina caricata dall'OCR -->
+          <input type="hidden" id="ocr_copertina_caricata" name="copertina_caricata" value="">
+
+          <!-- Scelta a 3 Pulsanti Giganti: Libro / Copione / CD-Vinile -->
+          <div class="tipo-selector-3">
+            <label class="tipo-option">
+              <input type="radio" name="tipo" value="Libro" checked onchange="aggiornaCampiTipoOcr()">
+              <div class="tipo-card">
+                <span class="icon">📖</span>
+                <span class="label">È un LIBRO</span>
+              </div>
+            </label>
+
+            <label class="tipo-option">
+              <input type="radio" name="tipo" value="Copione" onchange="aggiornaCampiTipoOcr()">
+              <div class="tipo-card">
+                <span class="icon">🎭</span>
+                <span class="label">È un COPIONE</span>
+              </div>
+            </label>
+
+            <label class="tipo-option">
+              <input type="radio" name="tipo" value="CD / Vinile" onchange="aggiornaCampiTipoOcr()">
+              <div class="tipo-card">
+                <span class="icon">🎵</span>
+                <span class="label">È un DISCO</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Titolo (Destinazione di [+ Titolo]) -->
+          <div class="form-group">
+            <label for="campo_titolo" class="form-label">
+              Titolo dell'Opera <span class="obbligatorio">*</span>
+            </label>
+            <input type="text" id="campo_titolo" name="titolo" class="form-control" required placeholder="Titolo del volume...">
+          </div>
+
+          <!-- Autore / Artista (Destinazione di [+ Autore/Artista]) -->
+          <div class="form-group">
+            <label for="campo_autore" class="form-label" id="label_autore">
+              Autore / Scrittore
+            </label>
+            <input type="text" id="campo_autore" name="autore" class="form-control" placeholder="Nome dell'autore...">
+          </div>
+
+          <!-- Collocazione in Casa con chips veloci -->
+          <div class="form-group">
+            <label for="campo_collocazione" class="form-label">
+              Dove lo conservi in casa? (Collocazione)
+            </label>
+            <input type="text" id="campo_collocazione" name="collocazione_casa" class="form-control" placeholder="Es. Libreria Salotto, Studio, Mobile vinili...">
+            <div class="chips-container">
+              <span style="font-size: 14px; color: #5a3e26; align-self: center;">Suggerimenti:</span>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('campo_collocazione', 'Libreria Salotto')">Libreria Salotto</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('campo_collocazione', 'Studio - Scaffale')">Studio</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('campo_collocazione', 'Cassetto Copioni')">Cassetto Copioni</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('campo_collocazione', 'Mobile Giradischi')">Mobile Giradischi</button>
+            </div>
+          </div>
+
+          <!-- Sezione Copioni Teatrali -->
+          <div id="sezioneCopioneOcr" class="sezione-copione" style="display: none;">
+            <div class="sezione-copione-titolo">
+              <span>🎭 Dettagli dello Spettacolo Teatrale</span>
+            </div>
+
+            <div class="form-group">
+              <label for="campo_regista" class="form-label">Regista dello Spettacolo</label>
+              <input type="text" id="campo_regista" name="regista" class="form-control" placeholder="Es. Giorgio Strehler, Giancarlo Cobelli...">
+            </div>
+
+            <div class="form-group">
+              <label for="campo_luogo" class="form-label">Teatro o Luogo della Prima</label>
+              <input type="text" id="campo_luogo" name="prima_esibizione_luogo" class="form-control" placeholder="Es. Teatro della Pergola, Firenze...">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <label for="campo_ingaggio" class="form-label">Data Ingaggio</label>
+                <input type="text" id="campo_ingaggio" name="data_ingaggio" class="form-control" placeholder="Es. 10/01/1988">
+              </div>
+              <div class="form-group">
+                <label for="campo_data_prima" class="form-label">Data Prima</label>
+                <input type="text" id="campo_data_prima" name="data_prima" class="form-control" placeholder="Es. 04/03/1988">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sezione CD / Vinili Musicali -->
+          <div id="sezioneMusicaOcr" class="sezione-musica" style="display: none;">
+            <div class="sezione-musica-titolo">
+              <span>🎵 Dati del Supporto Musicale</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Formato del Disco:</label>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" name="formato" value="Vinile LP" checked>
+                  <strong>💿 Vinile LP (33 giri)</strong>
+                </label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" name="formato" value="CD">
+                  <strong>💿 CD Audio</strong>
+                </label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" name="formato" value="Vinile 45 giri">
+                  <strong>🎵 Vinile 45 giri</strong>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="campo_etichetta_anno" class="form-label">Etichetta Discografica e Anno</label>
+              <input type="text" id="campo_etichetta_anno" name="etichetta_anno" class="form-control" placeholder="Es. RCA Victor, 1973 oppure Ricordi, 1984">
+            </div>
+          </div>
+
+          <!-- Note (Destinazione di [+ Note]) -->
+          <div class="form-group">
+            <label for="campo_note" class="form-label">Note personali o citazioni</label>
+            <textarea id="campo_note" name="note" class="form-control" placeholder="Dedica, note sull'edizione, brani preferiti..."></textarea>
+          </div>
+
+          <!-- Pulsante gigante di Salvataggio -->
+          <div style="margin-top: 26px;">
+            <button type="submit" class="btn-salva-grande" style="width: 100%; font-size: 24px; padding: 18px;">
+              💾 SALVA NELL'ARCHIVIO
+            </button>
+          </div>
+        </form>
+
+      </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <p>🎭 Memorie di Scena &bull; Archivio Teatrale e Collezione di Alessio Sardelli &bull; Modulo OCR Locale</p>
+    </footer>
+
+  </div>
+
+  <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser) -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+

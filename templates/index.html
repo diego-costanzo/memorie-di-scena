@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memorie di Scena - Archivio Teatrale di Alessio Sardelli</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ====================================================================
+         INTESTAZIONE PRINCIPALE
+         ==================================================================== -->
+    <header class="main-header">
+      <div class="header-cornice">
+        <span class="header-badge">Teatro &amp; Memoria</span>
+        <h1 class="main-title">🎭 Memorie di Scena</h1>
+        <p class="main-subtitle">Archivio Teatrale, Biblioteca e Ricordi di Palcoscenico di Alessio Sardelli</p>
+
+        <!-- Statistiche d'archivio -->
+        <div class="stats-bar">
+          <div class="stat-pill">
+            <span>📚 Totale:</span> <strong>{{ totale }}</strong>
+          </div>
+          <div class="stat-pill">
+            <span>📖 Libri:</span> <strong>{{ num_libri }}</strong>
+          </div>
+          <div class="stat-pill">
+            <span>🎭 Copioni:</span> <strong>{{ num_copioni }}</strong>
+          </div>
+          <div class="stat-pill" style="border-color: #baa2d6;">
+            <span>🎵 Musica:</span> <strong>{{ num_musica }}</strong>
+          </div>
+          {% if num_prestiti > 0 %}
+          <div class="stat-pill alert">
+            <span>🤝 In Prestito:</span> <strong>{{ num_prestiti }}</strong>
+          </div>
+          {% else %}
+          <div class="stat-pill">
+            <span>🤝 In Prestito:</span> <strong>0</strong>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         MESSAGGI DI CONFERMA / AVVISO
+         ==================================================================== -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash-alert {{ category }}">
+              <span>{{ message }}</span>
+              <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; font-size:24px; cursor:pointer; font-weight:bold; color:inherit;">&times;</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- ====================================================================
+         SEZIONE IN PRIMO PIANO: CHI HA I MIEI LIBRI?
+         (Visibile se ci sono volumi attualmente prestati)
+         ==================================================================== -->
+    {% if prestiti_attivi %}
+    <section class="prestiti-banner" id="sezionePrestitiAttivi">
+      <div class="prestiti-banner-header">
+        <h2 class="prestiti-banner-title">
+          <span>🤝 Chi ha i miei libri in questo momento?</span>
+          <span class="prestiti-count-tag">{{ prestiti_attivi|length }} in attesa di rientro</span>
+        </h2>
+      </div>
+
+      <div class="prestiti-grid">
+        {% for p in prestiti_attivi %}
+        <div class="prestito-row-card">
+          <img src="{{ p.copertina_path }}" alt="Copertina" class="prestito-thumb" onerror="this.src='/static/covers/default_{{ 'copione' if p.tipo == 'Copione' else ('musica' if p.tipo == 'CD / Vinile' else 'libro') }}.svg'">
+          <div class="prestito-info">
+            <div class="prestito-titolo">{{ p.titolo }}</div>
+            <div class="prestito-autore">{% if p.autore %}{{ p.autore }}{% else %}Autore/Artista non indicato{% endif %}</div>
+            <div class="prestito-destinatario">
+              👤 In prestito a: <strong>{{ p.nome_persona }}</strong><br>
+              <small>📅 Dal: {{ p.data_prestito }}{% if p.data_rientro_prevista %} &bull; Previsto rientro: {{ p.data_rientro_prevista }}{% endif %}</small>
+            </div>
+            
+            <!-- Segna Rientrato con 1 Clic -->
+            <form action="{{ url_for('segna_rientro', prestito_id=p.prestito_id) }}" method="POST" onsubmit="return confirm('Confermi che {{ p.nome_persona }} ha restituito il volume \'{{ p.titolo }}\'?');">
+              <button type="submit" class="btn-rientro-rapido">
+                <span>✅ È TORNATO A CASA</span>
+                <small style="font-size: 13px; font-weight: normal;">(Segna come Rientrato)</small>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ====================================================================
+         BARRA DELLE AZIONI E RICERCA RAPIDA ISTANTANEA
+         ==================================================================== -->
+    <section class="toolbar-section">
+      <div class="toolbar-row-top">
+        <!-- Pulsante gigante Nuovo Elemento -->
+        <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()">
+          <span style="font-size: 28px;">📖➕</span>
+          <span>Aggiungi Nuovo Volume o Disco</span>
+        </button>
+
+        <!-- Pulsante gigante Acquisizione Rapida da Foto (OCR) -->
+        <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande">
+          <span style="font-size: 28px;">📸</span>
+          <span>Acquisizione Rapida da Foto (OCR)</span>
+        </a>
+
+        {% if prestiti_attivi %}
+        <a href="#sezionePrestitiAttivi" class="tab-btn" style="background: #fff0d8; border-color: #ba761e; color: #6e3a03;">
+          <span>📌 Vai ai Prestiti Attivi ({{ prestiti_attivi|length }})</span>
+        </a>
+        {% endif %}
+      </div>
+
+      <!-- Ricerca istantanea -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="campoRicerca" class="search-input" 
+                 placeholder="Cerca per Titolo, Autore, Artista, Regista, Vinile o Stanza (es. Goldoni, De André, Salotto, Strehler)..."
+                 autocomplete="off">
+        </div>
+        <button type="button" class="btn-pulisci-ricerca" id="btnCancellaRicerca" onclick="cancellaRicerca()">
+          ✖ Cancella
+        </button>
+      </div>
+
+      <!-- Filtri a schede aggiornati -->
+      <div class="filter-tabs">
+        <button type="button" class="tab-btn active" data-filter="tutti" onclick="applicaFiltroTipo('tutti', this)">
+          <span>📚 Tutti i Volumi</span>
+          <span class="tab-badge" id="badgeTotale">{{ totale }}</span>
+        </button>
+        <button type="button" class="tab-btn" data-filter="Libro" onclick="applicaFiltroTipo('Libro', this)">
+          <span>📖 Libri</span>
+          <span class="tab-badge">{{ num_libri }}</span>
+        </button>
+        <button type="button" class="tab-btn" data-filter="Copione" onclick="applicaFiltroTipo('Copione', this)">
+          <span>🎭 Copioni</span>
+          <span class="tab-badge">{{ num_copioni }}</span>
+        </button>
+        <button type="button" class="tab-btn" data-filter="CD / Vinile" onclick="applicaFiltroTipo('CD / Vinile', this)">
+          <span>🎵 Musica (CD / Vinili)</span>
+          <span class="tab-badge">{{ num_musica }}</span>
+        </button>
+        <button type="button" class="tab-btn" data-filter="in_prestito" onclick="applicaFiltroTipo('in_prestito', this)">
+          <span>🤝 In Prestito</span>
+          <span class="tab-badge">{{ num_prestiti }}</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         GRIGLIA CATALOGO DEI VOLUMI E DISCHI
+         ==================================================================== -->
+    <main>
+      <div class="libri-grid" id="grigliaLibri">
+        {% for el in elementi %}
+        <article class="libro-card {% if el.tipo == 'Copione' %}tipo-copione{% elif el.tipo == 'CD / Vinile' %}tipo-musica{% endif %} {% if el.in_prestito %}in-prestito{% endif %}"
+                 data-id="{{ el.id }}"
+                 data-tipo="{{ el.tipo }}"
+                 data-prestito="{{ '1' if el.in_prestito else '0' }}"
+                 data-search="{{ (el.titolo ~ ' ' ~ (el.autore or '') ~ ' ' ~ (el.collocazione_casa or '') ~ ' ' ~ (el.note or '') ~ ' ' ~ (el.regista or '') ~ ' ' ~ (el.prima_esibizione_luogo or '') ~ ' ' ~ (el.formato or '') ~ ' ' ~ (el.etichetta_anno or '') ~ ' ' ~ (el.prestito_persona or ''))|lower }}">
+          
+          <div class="libro-card-body">
+            <!-- Copertina -->
+            <div class="libro-cover-container">
+              <img src="{{ el.copertina_path }}" 
+                   alt="Copertina di {{ el.titolo }}" 
+                   class="libro-cover-img"
+                   onerror="this.src='/static/covers/default_{{ 'copione' if el.tipo == 'Copione' else ('musica' if el.tipo == 'CD / Vinile' else 'libro') }}.svg'">
+            </div>
+
+            <!-- Dettagli -->
+            <div class="libro-content">
+              <span class="badge-tipo {% if el.tipo == 'Copione' %}copione{% elif el.tipo == 'CD / Vinile' %}musica{% else %}libro{% endif %}">
+                {% if el.tipo == 'Copione' %}
+                  🎭 COPIONE TEATRALE
+                {% elif el.tipo == 'CD / Vinile' %}
+                  🎵 CD / VINILE
+                {% else %}
+                  📖 LIBRO
+                {% endif %}
+              </span>
+
+              <h2 class="libro-titolo">{{ el.titolo }}</h2>
+              <div class="libro-autore">
+                {% if el.autore %}
+                  {% if el.tipo == 'CD / Vinile' %}
+                    di <strong>{{ el.autore }}</strong>
+                  {% else %}
+                    di {{ el.autore }}
+                  {% endif %}
+                {% else %}
+                  <span style="opacity: 0.65;">Autore non specificato</span>
+                {% endif %}
+              </div>
+
+              <!-- Dove si trova a casa -->
+              <div class="collocazione-box">
+                <strong>📍 Collocazione in Casa:</strong>
+                <span>{{ el.collocazione_casa or 'Posizione non ancora indicata' }}</span>
+              </div>
+
+              <!-- Informazioni teatrali per copioni -->
+              {% if el.tipo == 'Copione' %}
+                <div class="teatro-details">
+                  {% if el.regista %}
+                    <div><strong>🎬 Regia:</strong> {{ el.regista }}</div>
+                  {% endif %}
+                  {% if el.prima_esibizione_luogo %}
+                    <div><strong>🏛️ Prima:</strong> {{ el.prima_esibizione_luogo }}</div>
+                  {% endif %}
+                  {% if el.data_ingaggio or el.data_prima %}
+                    <div>
+                      <strong>📅 Date:</strong>
+                      {% if el.data_ingaggio %}Ingaggio: {{ el.data_ingaggio }}{% endif %}
+                      {% if el.data_ingaggio and el.data_prima %} &bull; {% endif %}
+                      {% if el.data_prima %}Debutto: {{ el.data_prima }}{% endif %}
+                    </div>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <!-- Informazioni specifiche per CD / Vinili -->
+              {% if el.tipo == 'CD / Vinile' %}
+                <div class="musica-details">
+                  {% if el.formato %}
+                    <div><strong>💿 Formato:</strong> {{ el.formato }}</div>
+                  {% endif %}
+                  {% if el.etichetta_anno %}
+                    <div><strong>🏛️ Etichetta &amp; Anno:</strong> {{ el.etichetta_anno }}</div>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <!-- Note -->
+              {% if el.note %}
+                <div class="note-box">
+                  <strong>📝 Appunti:</strong> {{ el.note }}
+                </div>
+              {% endif %}
+
+              <!-- Indicatore Ricordi Annotati -->
+              {% if el.num_appunti and el.num_appunti > 0 %}
+                <div class="ricordi-pill">
+                  <span>📓 {{ el.num_appunti }} Ricord{{ 'o' if el.num_appunti == 1 else 'i' }} nel Taccuino</span>
+                </div>
+              {% endif %}
+
+              <!-- Stato del prestito -->
+              {% if el.in_prestito %}
+                <div class="stato-prestito-box fuori">
+                  <span>🔴 IN PRESTITO A: <strong>{{ el.prestito_persona }}</strong></span>
+                </div>
+              {% else %}
+                <div class="stato-prestito-box in-casa">
+                  <span>🟢 Disponibile nella tua libreria</span>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Barra azioni della scheda -->
+          <footer class="libro-card-actions">
+            {% if el.in_prestito %}
+              <!-- Se è in prestito: pulsante per farlo rientrare -->
+              <form action="{{ url_for('segna_rientro', prestito_id=el.prestito_id) }}" method="POST" style="flex:1; display:flex;" onsubmit="return confirm('Confermi che \'{{ el.titolo }}\' è stato restituito?');">
+                <button type="submit" class="btn-card btn-rientro">
+                  ✅ Segna Rientrato
+                </button>
+              </form>
+            {% else %}
+              <!-- Se è a casa: pulsante per prestarlo -->
+              <button type="button" class="btn-card btn-presta" onclick="apriModalPrestito('{{ el.id }}', '{{ el.titolo|replace("'", "\\'") }}')">
+                🤝 Presta
+              </button>
+            {% endif %}
+
+            <!-- Pulsante Dettagli / Modifica & Taccuino Ricordi -->
+            <button type="button" class="btn-card btn-modifica" onclick="apriModalModifica('{{ el.id }}')" title="Modifica dati, collocazione o taccuino ricordi">
+              ✏️ Modifica &amp; Ricordi
+            </button>
+
+            <!-- Pulsante Elimina -->
+            <button type="button" class="btn-card btn-elimina" onclick="confermaElimina('{{ el.id }}', '{{ el.titolo|replace("'", "\\'") }}')" title="Rimuovi dall'archivio">
+              🗑️
+            </button>
+          </footer>
+        </article>
+        {% endfor %}
+
+        <!-- Box mostrato quando nessun libro corrisponde alla ricerca -->
+        <div id="nessunRisultatoBox" class="nessun-risultato" style="display: none;">
+          <div class="nessun-risultato-icon">🧐</div>
+          <h3>Nessun volume o disco trovato con questi criteri</h3>
+          <p>Prova a controllare l'ortografia oppure cancella la ricerca per vedere tutta la collezione.</p>
+          <button type="button" class="tab-btn active" onclick="cancellaRicerca()">
+            Mostra tutti gli elementi dell'Archivio
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <p>🎭 Memorie di Scena &bull; Archivio Teatrale e Collezione di Alessio Sardelli &bull; Sistema protetto su Debian Linux</p>
+    </footer>
+
+  </div><!-- /.app-container -->
+
+
+  <!-- ====================================================================
+       MODALE 1: AGGIUNGI NUOVO VOLUME / COPIONE / VINILE
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalNuovo">
+    <div class="modal-window">
+      <header class="modal-header">
+        <h2 class="modal-title">📖 Inserisci Nuovo Elemento</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <form action="{{ url_for('crea_elemento') }}" method="POST" class="modal-body" id="formNuovoElemento">
+        
+        <!-- Scelta dinamica: Libro / Copione / CD-Vinile (3 Pulsanti Giganti) -->
+        <div class="tipo-selector-3">
+          <label class="tipo-option">
+            <input type="radio" name="tipo" value="Libro" checked onchange="aggiornaCampiTipoNuovo()">
+            <div class="tipo-card">
+              <span class="icon">📖</span>
+              <span class="label">È un LIBRO</span>
+            </div>
+          </label>
+
+          <label class="tipo-option">
+            <input type="radio" name="tipo" value="Copione" onchange="aggiornaCampiTipoNuovo()">
+            <div class="tipo-card">
+              <span class="icon">🎭</span>
+              <span class="label">È un COPIONE</span>
+            </div>
+          </label>
+
+          <label class="tipo-option">
+            <input type="radio" name="tipo" value="CD / Vinile" onchange="aggiornaCampiTipoNuovo()">
+            <div class="tipo-card">
+              <span class="icon">🎵</span>
+              <span class="label">È un DISCO</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Titolo dell'Opera (Obbligatorio) -->
+        <div class="form-group">
+          <label for="nuovo_titolo" class="form-label">
+            Titolo dell'Opera o Album <span class="obbligatorio">*</span>
+            <span class="suggerimento">La copertina verrà cercata automaticamente sul web in base a questo titolo.</span>
+          </label>
+          <input type="text" id="nuovo_titolo" name="titolo" class="form-control" required placeholder="Es. Il barone rampante, Amleto, Creuza de mä...">
+        </div>
+
+        <!-- Autore / Artista -->
+        <div class="form-group">
+          <label for="nuovo_autore" class="form-label" id="label_nuovo_autore">
+            Autore / Scrittore
+          </label>
+          <input type="text" id="nuovo_autore" name="autore" class="form-control" placeholder="Es. Italo Calvino, Luigi Pirandello, Fabrizio De André...">
+        </div>
+
+        <!-- Collocazione in Casa con suggerimenti rapidi -->
+        <div class="form-group">
+          <label for="nuovo_collocazione" class="form-label">
+            Dove lo conservi in casa? (Collocazione)
+            <span class="suggerimento">Ti aiuterà a ritrovarlo subito quando ti servirà.</span>
+          </label>
+          <input type="text" id="nuovo_collocazione" name="collocazione_casa" class="form-control" placeholder="Es. Libreria Salotto, Studio, Mobile giradischi...">
+          <div class="chips-container">
+            <span style="font-size: 14px; color: #5a3e26; align-self: center;">Suggerimenti:</span>
+            <button type="button" class="chip-btn" onclick="impostaCollocazione('nuovo_collocazione', 'Libreria Salotto')">Libreria Salotto</button>
+            <button type="button" class="chip-btn" onclick="impostaCollocazione('nuovo_collocazione', 'Studio - Scaffale')">Studio</button>
+            <button type="button" class="chip-btn" onclick="impostaCollocazione('nuovo_collocazione', 'Cassetto Copioni')">Cassetto Copioni</button>
+            <button type="button" class="chip-btn" onclick="impostaCollocazione('nuovo_collocazione', 'Mobile Giradischi')">Mobile Giradischi</button>
+          </div>
+        </div>
+
+        <!-- Campi specifici per Copione Teatrale -->
+        <div id="sezioneCopioneNuovo" class="sezione-copione" style="display: none;">
+          <div class="sezione-copione-titolo">
+            <span>🎭 Dettagli dello Spettacolo e dell'Allestimento</span>
+          </div>
+
+          <div class="form-group">
+            <label for="nuovo_regista" class="form-label">Regista dello Spettacolo</label>
+            <input type="text" id="nuovo_regista" name="regista" class="form-control" placeholder="Es. Giorgio Strehler, Luca Ronconi, Giancarlo Cobelli...">
+          </div>
+
+          <div class="form-group">
+            <label for="nuovo_luogo" class="form-label">Teatro o Luogo della Prima Esibizione</label>
+            <input type="text" id="nuovo_luogo" name="prima_esibizione_luogo" class="form-control" placeholder="Es. Teatro della Pergola di Firenze, Piccolo di Milano...">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="form-group">
+              <label for="nuovo_ingaggio" class="form-label">Data Ingaggio</label>
+              <input type="text" id="nuovo_ingaggio" name="data_ingaggio" class="form-control" placeholder="Es. 15/03/1985">
+            </div>
+            <div class="form-group">
+              <label for="nuovo_data_prima" class="form-label">Data della Prima</label>
+              <input type="text" id="nuovo_data_prima" name="data_prima" class="form-control" placeholder="Es. 28/05/1985">
+            </div>
+          </div>
+        </div>
+
+        <!-- Campi specifici per CD / Vinili Musicali -->
+        <div id="sezioneMusicaNuovo" class="sezione-musica" style="display: none;">
+          <div class="sezione-musica-titolo">
+            <span>🎵 Formato e Dettagli Discografici</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Formato del Supporto:</label>
+            <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                <input type="radio" name="formato" value="Vinile LP" checked>
+                <strong>💿 Vinile LP (33 giri)</strong>
+              </label>
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                <input type="radio" name="formato" value="CD">
+                <strong>💿 CD Audio</strong>
+              </label>
+              <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                <input type="radio" name="formato" value="Vinile 45 giri">
+                <strong>🎵 Vinile 45 giri</strong>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="nuovo_etichetta_anno" class="form-label">Etichetta Discografica e Anno</label>
+            <input type="text" id="nuovo_etichetta_anno" name="etichetta_anno" class="form-control" placeholder="Es. Ricordi, 1984 oppure RCA, 1973">
+          </div>
+        </div>
+
+        <!-- Note personali / Editore -->
+        <div class="form-group">
+          <label for="nuovo_note" class="form-label">Note personali o sull'edizione</label>
+          <textarea id="nuovo_note" name="note" class="form-control" placeholder="Edizione con dedica, note di scena, ricordi personali..."></textarea>
+        </div>
+
+        <!-- Pulsanti azione -->
+        <div class="modal-actions">
+          <button type="submit" class="btn-salva-grande">
+            💾 SALVA NELL'ARCHIVIO
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Annulla
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODALE 2: REGISTRA UN PRESTITO
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalPrestito">
+    <div class="modal-window">
+      <header class="modal-header">
+        <h2 class="modal-title">🤝 Presta questo Volume</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <form action="{{ url_for('registra_prestito') }}" method="POST" class="modal-body">
+        <input type="hidden" id="prestito_elemento_id" name="elemento_id">
+
+        <div style="background: #faf4e8; border: 2px solid #dfc79b; padding: 16px; border-radius: 8px; margin-bottom: 22px;">
+          <span style="font-size: 15px; text-transform: uppercase; color: #855523; font-weight: bold;">Volume / Disco da prestare:</span>
+          <div id="prestito_titolo_mostra" style="font-size: 24px; font-weight: bold; color: #351c08;"></div>
+        </div>
+
+        <!-- A chi lo presti? (Obbligatorio) -->
+        <div class="form-group">
+          <label for="prestito_persona" class="form-label">
+            A chi stai prestando questo elemento? <span class="obbligatorio">*</span>
+            <span class="suggerimento">Scrivi il nome della persona o collega (es. Marco Rossi, Mario compagno di teatro...)</span>
+          </label>
+          <input type="text" id="prestito_persona" name="nome_persona" class="form-control" required placeholder="Nome della persona...">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <!-- Data prestito -->
+          <div class="form-group">
+            <label for="prestito_data" class="form-label">Data del Prestito</label>
+            <input type="text" id="prestito_data" name="data_prestito" class="form-control" value="{{ data_oggi }}">
+          </div>
+
+          <!-- Data prevista rientro -->
+          <div class="form-group">
+            <label for="prestito_rientro_previsto" class="form-label">
+              Rientro Previsto
+              <span class="suggerimento">(Facoltativo)</span>
+            </label>
+            <input type="text" id="prestito_rientro_previsto" name="data_rientro_prevista" class="form-control" placeholder="Es. Tra due settimane, 15/12...">
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-salva-grande">
+            🤝 CONFERMA PRESTITO
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Annulla
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODALE 3: MODIFICA DETTAGLI & TACCUINO DEI RICORDI
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalModifica">
+    <div class="modal-window">
+      <header class="modal-header">
+        <h2 class="modal-title">✏️ Scheda &amp; Taccuino dei Ricordi</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <div class="modal-body">
+        
+        <!-- Form Dati Principali -->
+        <form id="formModifica" action="" method="POST">
+          
+          <div class="form-group">
+            <label for="mod_titolo" class="form-label">Titolo dell'Opera <span class="obbligatorio">*</span></label>
+            <input type="text" id="mod_titolo" name="titolo" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="mod_autore" class="form-label" id="label_mod_autore">Autore / Scrittore</label>
+            <input type="text" id="mod_autore" name="autore" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="mod_collocazione" class="form-label">Dove si trova in casa? (Collocazione)</label>
+            <input type="text" id="mod_collocazione" name="collocazione_casa" class="form-control">
+            <div class="chips-container">
+              <span style="font-size: 14px; color: #5a3e26; align-self: center;">Suggerimenti:</span>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('mod_collocazione', 'Libreria Salotto')">Libreria Salotto</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('mod_collocazione', 'Studio - Scaffale')">Studio</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('mod_collocazione', 'Cassetto Copioni')">Cassetto Copioni</button>
+              <button type="button" class="chip-btn" onclick="impostaCollocazione('mod_collocazione', 'Mobile Giradischi')">Mobile Giradischi</button>
+            </div>
+          </div>
+
+          <!-- Campi copione se è un copione -->
+          <div id="sezioneCopioneModifica" class="sezione-copione" style="display: none;">
+            <div class="sezione-copione-titolo">
+              <span>🎭 Dati Teatrali del Copione</span>
+            </div>
+
+            <div class="form-group">
+              <label for="mod_regista" class="form-label">Regista</label>
+              <input type="text" id="mod_regista" name="regista" class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label for="mod_luogo" class="form-label">Luogo / Teatro della Prima</label>
+              <input type="text" id="mod_luogo" name="prima_esibizione_luogo" class="form-control">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <label for="mod_ingaggio" class="form-label">Data Ingaggio</label>
+                <input type="text" id="mod_ingaggio" name="data_ingaggio" class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="mod_data_prima" class="form-label">Data Prima</label>
+                <input type="text" id="mod_data_prima" name="data_prima" class="form-control">
+              </div>
+            </div>
+          </div>
+
+          <!-- Campi musica se è un CD / Vinile -->
+          <div id="sezioneMusicaModifica" class="sezione-musica" style="display: none;">
+            <div class="sezione-musica-titolo">
+              <span>🎵 Dettagli Musicali</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Formato:</label>
+              <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" id="mod_formato_lp" name="formato" value="Vinile LP">
+                  <strong>💿 Vinile LP</strong>
+                </label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" id="mod_formato_cd" name="formato" value="CD">
+                  <strong>💿 CD Audio</strong>
+                </label>
+                <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 18px;">
+                  <input type="radio" id="mod_formato_45" name="formato" value="Vinile 45 giri">
+                  <strong>🎵 45 giri</strong>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="mod_etichetta_anno" class="form-label">Etichetta e Anno</label>
+              <input type="text" id="mod_etichetta_anno" name="etichetta_anno" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="mod_note" class="form-label">Note generali</label>
+            <textarea id="mod_note" name="note" class="form-control"></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="submit" class="btn-salva-grande">
+              💾 SALVA MODIFICHE
+            </button>
+            <button type="button" class="btn-annulla" onclick="chiudiModali()">
+              Chiudi
+            </button>
+          </div>
+        </form>
+
+        <!-- SEZIONE TACCUINO DEI RICORDI / CITAZIONI -->
+        <div class="taccuino-container">
+          <div class="taccuino-header">
+            <span>📓 Taccuino dei Ricordi &amp; Citazioni</span>
+          </div>
+
+          <!-- Elenco citazioni e ricordi già salvati -->
+          <div class="taccuino-cards-list" id="listaRicordiTaccuino">
+            <!-- Riempito dinamicamente da JS -->
+          </div>
+
+          <!-- Modulo per aggiungere un nuovo appunto -->
+          <form id="formAggiungiRicordo" action="" method="POST" style="margin-top: 14px; border-top: 1px dashed #d6be9a; padding-top: 14px;">
+            <label for="testo_nuovo_ricordo" class="form-label" style="font-size: 17px;">
+              ✍️ Aggiungi un pensiero, una frase amata o un ricordo personale:
+            </label>
+            <textarea id="testo_nuovo_ricordo" name="testo" class="form-control" style="min-height: 80px;" placeholder="Scrivi qui la tua citazione o ricordo..."></textarea>
+            <button type="submit" class="btn-card btn-presta" style="margin-top: 10px; width: 100%; font-size: 18px; padding: 12px;">
+              ✍️ Aggiungi al Taccuino dei Ricordi
+            </button>
+          </form>
+        </div>
+
+        <!-- Riquadro Copertina Web -->
+        <div style="margin-top: 24px; padding-top: 18px; border-top: 2px dashed #d8c3a1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <strong style="color: #4b2c14; font-size: 18px;">Copertina dal Web</strong>
+              <div style="font-size: 15px; color: #6d4b2e;">Vuoi cercare di nuovo una copertina su Internet?</div>
+            </div>
+            <form id="formAggiornaCopertina" action="" method="POST">
+              <button type="submit" class="tab-btn" style="background: #eadecd;">
+                🔄 Cerca Copertina Online
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Storico Prestiti -->
+        <div style="margin-top: 22px; padding-top: 18px; border-top: 2px dashed #d8c3a1;">
+          <strong style="color: #4b2c14; font-size: 18px;">📜 Storico dei Prestiti per questo volume:</strong>
+          <div id="contenutoStoricoPrestiti" style="margin-top: 10px;"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODALE 4: CONFERMA ELIMINAZIONE
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalElimina">
+    <div class="modal-window" style="max-width: 520px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #641c1c 0%, #3e0c0c 100%);">
+        <h2 class="modal-title">🗑️ Conferma Eliminazione</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <form id="formElimina" action="" method="POST" class="modal-body">
+        <p style="font-size: 21px; margin-bottom: 20px; color: #2e160a;">
+          Sei sicuro di voler rimuovere per sempre dall'archivio:
+        </p>
+        <div id="elimina_titolo_mostra" style="font-size: 24px; font-weight: bold; color: #7f1717; background: #faeaea; padding: 14px; border-radius: 8px; border: 1px solid #dca4a4; margin-bottom: 24px;"></div>
+        
+        <p style="font-size: 16px; color: #6d422a; margin-bottom: 24px;">
+          Tutti i dati, i ricordi del taccuino e lo storico prestiti di questo elemento saranno rimossi in modo definitivo.
+        </p>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-salva-grande" style="background: linear-gradient(180deg, #a62626 0%, #6e1515 100%); border-color: #520e0e;">
+            🗑️ SÌ, ELIMINA DEFINITIVAMENTE
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            No, Mantieni
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser) -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

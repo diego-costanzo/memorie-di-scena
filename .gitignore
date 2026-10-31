@@ -1,0 +1,17 @@
+# Ambiente virtuale Python locale
+venv/
+env/
+.env
+
+# Bytecode e cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# File temporanei editor e OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.log
