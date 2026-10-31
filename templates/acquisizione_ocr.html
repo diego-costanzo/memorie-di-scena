@@ -10,19 +10,24 @@
 
   <div class="app-container">
 
-    <!-- Intestazione con pulsante di ritorno -->
+    <!-- Testata del Taccuino -->
+    <div class="taccuino-top-bar">
+      <div class="taccuino-tag">
+        <span class="segnalibro-nastro"></span>
+        <span class="taccuino-tag-testo">📸 BANCO DEL SUGGERITORE &bull; ACQUISIZIONE GUIDATA DA FOTO</span>
+      </div>
+      <a href="{{ url_for('index') }}" class="btn-riponi-taccuino" style="text-decoration:none;">
+        <span>⬅️ Torna al Taccuino</span>
+      </a>
+    </div>
+
+    <!-- Intestazione con spiegazione -->
     <header class="main-header" style="padding: 22px 28px; margin-bottom: 20px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-        <a href="{{ url_for('index') }}" class="btn-annulla" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 18px; padding: 10px 18px;">
-          <span>⬅️ Torna a Memorie di Scena</span>
-        </a>
-        <div style="text-align: center; flex: 1;">
-          <h1 style="font-size: 32px; color: #fff9ed; margin: 0;">📸 Acquisizione Rapida da Foto</h1>
-          <p style="font-size: 17px; color: #ebd6b0; margin: 4px 0 0 0; font-style: italic;">
-            Carica la foto di una copertina o di un frontespizio: il testo verrà letto e potrai comporre la scheda con 1 clic!
-          </p>
-        </div>
-        <div style="width: 140px;"></div>
+      <div style="text-align: center;">
+        <h1 style="font-size: 32px; color: #fff9ed; margin: 0;">📸 Acquisizione Rapida da Foto</h1>
+        <p style="font-size: 18px; color: #ebd6b0; margin: 6px 0 0 0; font-style: italic;">
+          Carica la foto di una copertina o di un frontespizio: il testo verrà letto e potrai comporre la scheda con 1 clic!
+        </p>
       </div>
     </header>
 

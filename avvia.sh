@@ -113,9 +113,9 @@ apri_browser() {
     elif command -v google-chrome &> /dev/null; then
         google-chrome --start-maximized --app="$url" &> /dev/null &
         return 0
-    # 2. Se è presente Firefox (browser predefinito standard su Debian/Ubuntu)
+    # 2. Se è presente Firefox: avvia in modalità Kiosk (senza barre, URL né schede)
     elif command -v firefox &> /dev/null; then
-        firefox --new-window "$url" &> /dev/null &
+        firefox --kiosk "$url" &> /dev/null &
         return 0
     # 3. Fallback universale Freedesktop (xdg-open)
     elif command -v xdg-open &> /dev/null; then

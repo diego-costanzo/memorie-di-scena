@@ -74,3 +74,4 @@ Lo script:
 ```
 L'applicazione avvierà il servizio locale e aprirà automaticamente il browser predefinito a tutto schermo su `http://127.0.0.1:5000`.
 Per chiudere in modo pulito l'archivio, premi `[CTRL] + [C]` nella finestra del terminale.
+

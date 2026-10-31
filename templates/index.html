@@ -11,6 +11,19 @@
   <div class="app-container">
 
     <!-- ====================================================================
+         TESTATA DEL TACCUINO DI PALCOSCENICO (Nastro Segnalibro & Tasto Riponi)
+         ==================================================================== -->
+    <div class="taccuino-top-bar">
+      <div class="taccuino-tag">
+        <span class="segnalibro-nastro"></span>
+        <span class="taccuino-tag-testo">📖 REGISTRO GENERALE &bull; COMPAGNIA TEATRALE ALESSIO SARDELLI</span>
+      </div>
+      <button type="button" class="btn-riponi-taccuino" onclick="apriModalChiudi()" title="Chiudi l'archivio e riponi il taccuino">
+        <span>📕 Riponi il Taccuino (Esci)</span>
+      </button>
+    </div>
+
+    <!-- ====================================================================
          INTESTAZIONE PRINCIPALE
          ==================================================================== -->
     <header class="main-header">
@@ -718,6 +731,38 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODALE 5: CONFERMA RIPONI IL TACCUINO (CHIUSURA APPLICAZIONE)
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalChiudiApp">
+    <div class="modal-window" style="max-width: 540px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #44131a 0%, #1f080c 100%);">
+        <h2 class="modal-title">📕 Riponi il Taccuino di Scena</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+      <div class="modal-body" style="text-align: center; padding: 32px 28px;">
+        <p style="font-size: 24px; color: #2a1508; font-weight: bold; margin-bottom: 12px;">
+          Vuoi chiudere l'archivio per oggi?
+        </p>
+        <p style="font-size: 18px; color: #5a3418; margin-bottom: 28px; line-height: 1.5;">
+          Tutti i tuoi copioni, volumi, prestiti e ricordi sono salvati al sicuro sul tuo computer.
+        </p>
+        <div id="stato-chiusura" style="display: none; font-size: 20px; color: #175e24; font-weight: bold; margin-bottom: 20px;">
+          ⏳ Taccuino riposto con cura... A presto, Alessio!
+        </div>
+        <div class="modal-actions" id="azioni-chiusura" style="justify-content: center; gap: 16px;">
+          <button type="button" class="btn-salva-grande" style="background: linear-gradient(180deg, #7c1a26 0%, #480d14 100%); border-color: #31080d;" onclick="eseguiChiusuraApp()">
+            📕 SÌ, RIPONI E CHIUDI
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Continua a Sfogliare
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

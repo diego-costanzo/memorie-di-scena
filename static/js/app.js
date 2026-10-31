@@ -526,3 +526,41 @@ function aggiornaCampiTipoOcr() {
   }
 }
 
+
+
+// ==============================================================================
+// GESTIONE CHIUSURA APPLICAZIONE (RIPONI IL TACCUINO)
+// ==============================================================================
+function apriModalChiudi() {
+  const modal = document.getElementById('modalChiudiApp');
+  if (modal) {
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function eseguiChiusuraApp() {
+  const stato = document.getElementById('stato-chiusura');
+  const azioni = document.getElementById('azioni-chiusura');
+  if (stato) stato.style.display = 'block';
+  if (azioni) azioni.style.display = 'none';
+
+  fetch('/api/chiudi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(() => {
+    setTimeout(() => {
+      window.close();
+      // Schermata di saluto rassicurante se la finestra kiosk non si chiude automaticamente da JS
+      document.body.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#1b0e07; color:#fbf5ea; font-family:'Georgia',serif; text-align:center; padding:24px;">
+          <h1 style="font-size:46px; color:#dfb249; margin-bottom:18px;">🎭 Memorie di Scena</h1>
+          <p style="font-size:26px; color:#ebd6b0; max-width:680px; line-height:1.5;">Il Taccuino è stato riposto con cura e il sistema è a riposo.</p>
+          <p style="font-size:20px; color:#c3a88c; margin-top:24px; font-style:italic;">A presto, Signor Alessio!</p>
+        </div>
+      `;
+    }, 400);
+  }).catch(() => {
+    window.close();
+  });
+}

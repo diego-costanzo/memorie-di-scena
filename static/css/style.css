@@ -57,24 +57,99 @@
 
 body {
   font-family: var(--font-serif);
-  background-color: var(--bg-page);
-  background-image: radial-gradient(#ebdfcb 1px, transparent 1px), radial-gradient(#ebdfcb 1px, #f5eedf 1px);
-  background-size: 30px 30px;
-  background-position: 0 0, 15px 15px;
-  color: var(--leather-dark);
+  background-color: #21120a;
+  background-image: 
+    radial-gradient(ellipse at center top, #361f12 0%, #160a04 100%),
+    repeating-linear-gradient(45deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 2px, transparent 2px, transparent 10px);
+  color: #26150a;
   font-size: 19px;
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding: 16px 20px 40px 20px;
 }
 
-/* Contenitore Principale */
+/* ==========================================================================
+   IL TACCUINO DI PALCOSCENICO (Registro Aperto sul Tavolo di Scena)
+   ========================================================================== */
 .app-container {
-  max-width: 1320px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 24px 20px 80px 20px;
+  padding: 34px 44px 80px 44px;
   width: 100%;
+  background-color: #f7f1e3;
+  background-image: 
+    linear-gradient(90deg, rgba(74, 32, 17, 0.08) 0px, transparent 22px),
+    repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(195, 175, 145, 0.16) 31px, rgba(195, 175, 145, 0.16) 32px);
+  border-radius: 14px;
+  border-left: 20px solid #4a2113;
+  box-shadow: 
+    0 18px 50px rgba(0, 0, 0, 0.75),
+    inset 4px 0 8px rgba(0, 0, 0, 0.35),
+    inset -4px 0 12px rgba(212, 175, 55, 0.05);
+  position: relative;
+}
+
+/* Barra superiore del taccuino con nastro segnalibro e tasto di chiusura */
+.taccuino-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #dfcfb2;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.taccuino-tag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.segnalibro-nastro {
+  display: inline-block;
+  width: 18px;
+  height: 28px;
+  background: linear-gradient(180deg, #961c28 0%, #680d16 100%);
+  border-radius: 0 0 5px 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  border: 1px solid #b83d4c;
+}
+
+.taccuino-tag-testo {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #613c22;
+  font-weight: bold;
+}
+
+.btn-riponi-taccuino {
+  background: linear-gradient(180deg, #6d1b24 0%, #440e14 100%);
+  color: #fff9ed;
+  border: 2px solid #a87445;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+}
+
+.btn-riponi-taccuino:hover {
+  background: linear-gradient(180deg, #872530 0%, #59141c 100%);
+  border-color: #dfb249;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* --------------------------------------------------------------------------
@@ -616,32 +691,35 @@ body {
 
 .badge-tipo {
   display: inline-block;
+  font-family: 'Courier New', Courier, monospace;
   font-size: 13px;
   font-weight: bold;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 4px;
   margin-bottom: 8px;
   align-self: flex-start;
+  border: 1.5px dashed currentColor;
 }
 
 .badge-tipo.libro {
-  background: #eee0c8;
+  background: #fbf5eb;
   color: #4b2b13;
-  border: 1px solid #c7ab82;
+  border-color: #a8764a;
 }
 
 .badge-tipo.copione {
-  background: #f8e1e4;
+  background: #faeaed;
   color: #7b1220;
-  border: 1px solid #dca4ac;
+  border-color: #c93b4f;
+  transform: rotate(-1deg);
 }
 
 .badge-tipo.musica {
-  background: #ede6f5;
+  background: #f3ecf8;
   color: #3b2257;
-  border: 1px solid #caaedb;
+  border-color: #8c5eb3;
 }
 
 .libro-titolo {
@@ -678,19 +756,24 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Riquadro Dettagli Teatrali */
+/* Riquadro Dettagli Teatrali (Stile Appunti Battuti a Macchina per la Compagnia) */
 .teatro-details {
-  background: #fcf4f5;
-  border: 1px dashed #d698a0;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
+  background: #fbf7ef;
+  border-left: 3px solid #8e2230;
+  border-top: 1px dashed #dcbabf;
+  border-right: 1px dashed #dcbabf;
+  border-bottom: 1px dashed #dcbabf;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-family: 'Courier New', Courier, monospace;
   font-size: 15px;
-  color: #55131c;
+  color: #38151b;
+  line-height: 1.5;
 }
 
 .teatro-details div {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 /* Riquadro Dettagli Musicali */
@@ -1172,21 +1255,22 @@ textarea.form-control {
 }
 
 .appunto-card {
-  background: #fffdf8;
+  background: #fffef9;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 27px, #eadbc1 27px, #eadbc1 28px);
   border: 1px solid #dfcfb2;
-  border-left: 6px solid #b8860b;
+  border-left: 6px solid #8e2b38;
   border-radius: 6px;
-  padding: 14px 16px;
+  padding: 16px 20px;
   position: relative;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
 }
 
 .appunto-testo {
-  font-size: 18px;
+  font-size: 20px;
   font-style: italic;
-  color: #2b180a;
-  line-height: 1.5;
-  margin-bottom: 8px;
+  color: #211208;
+  line-height: 28px;
+  margin-bottom: 12px;
   white-space: pre-wrap;
 }
 

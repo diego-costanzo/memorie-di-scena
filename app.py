@@ -741,6 +741,19 @@ def elimina_appunto(appunto_id):
     return redirect(url_for("index"))
 
 
+@app.route("/api/chiudi", methods=["POST"])
+def chiudi_applicazione():
+    """Arresto pulito e sicuro dell'applicazione dal pulsante 'Riponi il Taccuino'."""
+    def termina():
+        import time, signal
+        time.sleep(0.6)
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    import threading
+    threading.Thread(target=termina, daemon=True).start()
+    return jsonify({"success": True, "messaggio": "Arrivederci Signor Alessio!"})
+
+
 if __name__ == "__main__":
     init_db()
     # Esecuzione rigorosa su interfaccia locale di loopback e senza debug mode
