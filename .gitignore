@@ -16,3 +16,6 @@ Thumbs.db
 *~
 *.log
 
+# Script personale di backup sviluppatore (non distribuire ad Alessio)
+backup.sh
+
