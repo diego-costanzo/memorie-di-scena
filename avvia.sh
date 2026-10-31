@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # SCRIPT DI AVVIO QUOTIDIANO - MEMORIE DI SCENA
-# Archivio Teatrale e Collezione di Alessio Sardelli
+# Archivio Teatrale e Collezione Personale
 # Risolve percorsi assoluti, verifica l'ambiente, avvia l'app locale e
 # apre automaticamente il browser predefinito a tutto schermo.
 # Gestione sicura dei segnali per terminazione pulita (SIGTERM).
@@ -41,7 +41,7 @@ APP_URL="http://127.0.0.1:5000"
 
 echo "=================================================================="
 echo "   🎭 MEMORIE DI SCENA"
-echo "   Archivio Teatrale, Biblioteca e Collezione di Alessio Sardelli"
+echo "   Archivio Teatrale, Biblioteca e Collezione Personale"
 echo "=================================================================="
 echo ""
 echo "Caricamento dell'applicazione in corso..."
@@ -67,7 +67,7 @@ else
             kill -TERM "$SERVER_PID" 2>/dev/null || true
             wait "$SERVER_PID" 2>/dev/null || true
         fi
-        echo "Arrivederci Signor Sardelli!"
+        echo "Arrivederci!"
         exit 0
     }
     trap cleanup SIGINT SIGTERM SIGHUP EXIT

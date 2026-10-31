@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Memorie di Scena - Archivio Teatrale e Collezione di Alessio Sardelli
+Memorie di Scena - Archivio Teatrale e Collezione Personale
 Web App locale per la gestione di Libri, Copioni teatrali, CD/Vinili, Ricordi e Prestiti.
 Audited & Hardened:
 - SQLite gestito con context manager (commit/rollback/close garantiti e PRAGMA foreign_keys = ON)
@@ -42,7 +42,7 @@ elif os.path.exists(ROOT_OLD_DB) and os.path.exists(DB_PATH):
         pass
 
 app = Flask(__name__)
-app.secret_key = "sardelli_chiave_segreta_archivio_personale_1954"
+app.secret_key = "memorie_di_scena_registro_teatrale_chiave_protetta"
 
 # ------------------------------------------------------------------------------
 # SICUREZZA UPLOAD & RISORSE (OTTIMIZZATO PER FOTO DA SMARTPHONE MODERNI)
@@ -751,7 +751,7 @@ def chiudi_applicazione():
 
     import threading
     threading.Thread(target=termina, daemon=True).start()
-    return jsonify({"success": True, "messaggio": "Arrivederci Signor Alessio!"})
+    return jsonify({"success": True, "messaggio": "Arrivederci!"})
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 /**
  * MEMORIE DI SCENA - Logica Client-Side (Vanilla JS)
- * Archivio Teatrale e Collezione di Alessio Sardelli
+ * Archivio Teatrale e Collezione Personale
  * Gestione finestre modali, filtri in tempo reale, taccuino ricordi e acquisizione guidata OCR.
  * Nessuna dipendenza esterna, compatibile con tutti i browser Debian/Ubuntu.
  */
@@ -556,7 +556,7 @@ function eseguiChiusuraApp() {
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#1b0e07; color:#fbf5ea; font-family:'Georgia',serif; text-align:center; padding:24px;">
           <h1 style="font-size:46px; color:#dfb249; margin-bottom:18px;">🎭 Memorie di Scena</h1>
           <p style="font-size:26px; color:#ebd6b0; max-width:680px; line-height:1.5;">Il Taccuino è stato riposto con cura e il sistema è a riposo.</p>
-          <p style="font-size:20px; color:#c3a88c; margin-top:24px; font-style:italic;">A presto, Signor Alessio!</p>
+          <p style="font-size:20px; color:#c3a88c; margin-top:24px; font-style:italic;">A presto!</p>
         </div>
       `;
     }, 400);

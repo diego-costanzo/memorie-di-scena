@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # SCRIPT DI INSTALLAZIONE E CONFIGURAZIONE INIZIALE - MEMORIE DI SCENA
-# Archivio Teatrale e Collezione di Alessio Sardelli
+# Archivio Teatrale e Collezione Personale
 # Idempotente: se l'ambiente è già installato, avvia direttamente l'applicazione.
 # Su nuovo sistema:
 # - Verifica e installa i pacchetti di sistema apt (Debian/Ubuntu)
@@ -53,7 +53,7 @@ Version=1.0
 Type=Application
 Name=Memorie di Scena
 GenericName=Archivio Teatrale e Collezione
-Comment=Memorie di Scena - Archivio Teatrale, Biblioteca e Ricordi di Alessio Sardelli
+Comment=Memorie di Scena - Archivio Teatrale, Biblioteca e Collezione Personale
 Exec=/bin/bash \"$DIR/avvia.sh\"
 Path=$DIR
 Icon=accessories-dictionary

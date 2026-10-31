@@ -1,15 +1,15 @@
 # 🎭 Memorie di Scena
-### *Archivio Teatrale, Biblioteca e Collezione di Alessio Sardelli*
+### *Archivio Teatrale, Biblioteca e Collezione Personale*
 
-Applicazione web locale, autonoma, leggera e ad alta leggibilità sviluppata per **Debian GNU/Linux** (e derivate Ubuntu/Arch), pensata specificamente per Alessio Sardelli (attore di teatro).
+Applicazione web locale, autonoma, leggera e ad alta leggibilità sviluppata per **Debian GNU/Linux** (e derivate Ubuntu/Arch), concepita come un caldo ed elegante taccuino di palcoscenico d'altri tempi.
 
 ---
 
 ## 🌟 Caratteristiche Principali
 
-- **Design Teatrale Classico & Alta Leggibilità**:
+- **Design a Taccuino di Palcoscenico & Alta Leggibilità**:
   - Tavolozza calda ispirata ai teatri storici all'italiana (velluto bordeaux, carta antica a mano e finiture in oro antico).
-  - Caratteri grandi (>= 19px), pulsanti ad alto contrasto e flussi a prova di errore pensati per utenti senior.
+  - Caratteri grandi (>= 19px), pulsanti ad alto contrasto e interfaccia ergonomica a prova di errore.
   - Zero framework pesanti, zero dipendenze CDN esterne: funziona al 100% offline.
 
 - **Modello Dati Completo (SQLite Nativo)**:
@@ -33,7 +33,7 @@ Applicazione web locale, autonoma, leggera e ad alta leggibilità sviluppata per
 ## 📁 Struttura del Progetto
 
 ```text
-Sardelli/
+memorie-di-scena/
 ├── app.py                      # Backend Flask protetto (porte 127.0.0.1:5000, context manager)
 ├── avvia.sh                    # Script di avvio quotidiano a schermo intero (con trap di chiusura)
 ├── installa.sh                 # Installatore idempotente (pacchetti apt, venv, lanciatore desktop)
