@@ -85,7 +85,7 @@ if [ -x "$DIR/venv/bin/python" ] && "$DIR/venv/bin/python" -c "import flask, req
     echo "=================================================================="
     echo "   🎭 MEMORIE DI SCENA"
     echo "=================================================================="
-    echo "Libreria già installata. Avvio in corso..."
+    echo "Archivio già configurato. Avvio in corso..."
     echo ""
     # Assicura che i lanciatori siano registrati e aggiornati
     installa_lanciatori_desktop
@@ -96,18 +96,28 @@ fi
 # ------------------------------------------------------------------------------
 # PRIMA INSTALLAZIONE (Ambiente non ancora configurato)
 # ------------------------------------------------------------------------------
+ARCH="$(uname -m)"
 echo "=================================================================="
 echo "   🏛️ INSTALLAZIONE E CONFIGURAZIONE - MEMORIE DI SCENA"
 echo "   Configurazione automatica e protetta per Debian / Ubuntu"
+echo "   Architettura rilevata: $ARCH"
 echo "=================================================================="
+if [[ "$ARCH" =~ ^i[3-6]86$ ]]; then
+    echo "ℹ️  Rilevato sistema Linux a 32 bit ($ARCH)."
+    echo "    Attivazione profilo di compatibilità estesa Debian i386."
+fi
 echo ""
 
-# 1. Verifica pacchetti apt
+# 1. Verifica pacchetti apt nativi (include moduli precompilati a 32-bit e 64-bit)
 echo "🔍 1. Controllo pacchetti di sistema Debian/Ubuntu..."
 PACCHETTI_NECESSARI=(
     python3
     python3-venv
     python3-pip
+    python3-flask
+    python3-requests
+    python3-pil
+    python3-pytesseract
     tesseract-ocr
     tesseract-ocr-ita
     libtesseract-dev
@@ -148,26 +158,33 @@ else
     fi
 fi
 
-# 2. Creazione venv
+# 2. Creazione venv con system-site-packages per ereditare le librerie native Debian
 echo ""
 echo "📦 2. Configurazione ambiente virtuale Python (venv)..."
 if [ ! -d "$DIR/venv" ] || [ ! -f "$DIR/venv/bin/python" ]; then
-    python3 -m venv "$DIR/venv"
-    echo "✅ Ambiente virtuale creato in $DIR/venv."
+    python3 -m venv --system-site-packages "$DIR/venv"
+    echo "✅ Ambiente virtuale creato in $DIR/venv (con supporto pacchetti di sistema)."
 else
     echo "✅ Ambiente virtuale già presente."
 fi
 
-# 3. Installazione dipendenze Python
+# 3. Verifica dipendenze Python
 echo ""
 echo "📚 3. Installazione e verifica delle librerie Python..."
-"$DIR/venv/bin/python" -m pip install --upgrade pip --quiet
-if [ -f "$DIR/requirements.txt" ]; then
-    "$DIR/venv/bin/python" -m pip install -r "$DIR/requirements.txt" --quiet
-else
-    "$DIR/venv/bin/python" -m pip install flask requests pillow pytesseract --quiet
+# Se le librerie sono già ereditate dal sistema apt (ottimizzate a 32-bit), non serve ricompilare
+if ! "$DIR/venv/bin/python" -c "import flask, requests, PIL, pytesseract" &> /dev/null; then
+    echo "➡️ Installazione librerie mancanti tramite pip..."
+    if [ -f "$DIR/requirements.txt" ]; then
+        "$DIR/venv/bin/python" -m pip install -r "$DIR/requirements.txt" --no-warn-script-location --quiet 2>/dev/null || \
+        "$DIR/venv/bin/python" -m pip install "flask>=2.0" "requests>=2.20" "pillow>=8.0" "pytesseract>=0.3.7" --no-warn-script-location --quiet 2>/dev/null || true
+    fi
 fi
-echo "✅ Librerie Python installate con successo."
+
+if "$DIR/venv/bin/python" -c "import flask, requests, PIL, pytesseract" &> /dev/null; then
+    echo "✅ Librerie Python verificate e pronte all'uso."
+else
+    echo "⚠️ Alcune librerie potrebbero richiedere l'installazione dei pacchetti apt indicati sopra."
+fi
 
 # 4. Registrazione lanciatori desktop
 echo ""

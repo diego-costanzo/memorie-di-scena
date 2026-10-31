@@ -113,7 +113,10 @@ apri_browser() {
     elif command -v google-chrome &> /dev/null; then
         google-chrome --start-maximized --app="$url" &> /dev/null &
         return 0
-    # 2. Se è presente Firefox: avvia in modalità Kiosk (senza barre, URL né schede)
+    # 2. Se è presente Firefox ESR (predefinito Debian) o Firefox standard: modalità Kiosk
+    elif command -v firefox-esr &> /dev/null; then
+        firefox-esr --kiosk "$url" &> /dev/null &
+        return 0
     elif command -v firefox &> /dev/null; then
         firefox --kiosk "$url" &> /dev/null &
         return 0

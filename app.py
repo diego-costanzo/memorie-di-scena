@@ -17,11 +17,25 @@ import urllib.parse
 from datetime import datetime, date
 from contextlib import contextmanager
 import shutil
+import warnings
+import logging
+
+# Pulizia dei warning da terminale (per non allarmare l'utente con messaggi di sviluppo)
+warnings.filterwarnings("ignore")
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageEnhance, ImageOps
 import pytesseract
+
+# Soppressione pulita del banner di sviluppo Flask se presente
+try:
+    import flask.cli
+    flask.cli.show_server_banner = lambda *args: None
+except Exception:
+    pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -30,6 +44,27 @@ COVERS_DIR = os.path.join(BASE_DIR, "static", "covers")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
+
+# ------------------------------------------------------------------------------
+# RILEVAMENTO ARCHITETTURA (32-bit vs 64-bit) & COMPATIBILITÀ UNIVERSALE
+# ------------------------------------------------------------------------------
+IS_32_BIT = sys.maxsize <= 2**32
+
+# Adattamento filtro di ricampionamento per tutte le versioni di Pillow (da Pillow 5 a 11+)
+if hasattr(Image, "Resampling"):
+    RESAMPLE_FILTER = Image.Resampling.LANCZOS
+elif hasattr(Image, "LANCZOS"):
+    RESAMPLE_FILTER = Image.LANCZOS
+else:
+    RESAMPLE_FILTER = getattr(Image, "ANTIALIAS", 1)
+
+if IS_32_BIT:
+    # Su sistemi a 32-bit (es. PC datato di Alessio) ottimizza l'uso della RAM e spazio indirizzi
+    Image.MAX_IMAGE_PIXELS = 50_000_000
+    MAX_IMAGE_DIM = 1800
+else:
+    Image.MAX_IMAGE_PIXELS = 150_000_000
+    MAX_IMAGE_DIM = 2400
 
 # Migrazione di sicurezza: se archivio.db risiede nella root, spostalo in data/archivio.db
 ROOT_OLD_DB = os.path.join(BASE_DIR, "archivio.db")
@@ -433,11 +468,10 @@ def ocr_upload():
             except Exception:
                 pass
 
-            # Ottimizzazione RAM & OCR: ridimensiona se supera i 2400px sul lato lungo
-            # (Risoluzione ideale per Tesseract OCR ~300 DPI, prevenendo saturazione memoria)
-            max_lato = 2400
+            # Ottimizzazione RAM & OCR: ridimensionamento calibrato per 32-bit e 64-bit
+            max_lato = MAX_IMAGE_DIM
             if max(img.size) > max_lato:
-                img.thumbnail((max_lato, max_lato), Image.Resampling.LANCZOS)
+                img.thumbnail((max_lato, max_lato), RESAMPLE_FILTER)
 
             # Salvataggio copia per la copertina con nome sicuro
             estensione = clean_filename.rsplit(".", 1)[1].lower()
