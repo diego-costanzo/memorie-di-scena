@@ -114,13 +114,11 @@ PACCHETTI_NECESSARI=(
     python3
     python3-venv
     python3-pip
+    python3-pil
     python3-flask
     python3-requests
-    python3-pil
-    python3-pytesseract
     tesseract-ocr
     tesseract-ocr-ita
-    libtesseract-dev
 )
 
 if command -v apt-get &> /dev/null; then
@@ -139,11 +137,15 @@ if command -v apt-get &> /dev/null; then
         echo "➡️ Installazione pacchetti di sistema mancanti: ${PACCHETTI_MANCANTI[*]}"
         echo "   (Se richiesta, inserisci la password di amministrazione)"
         if [ "$(id -u)" -eq 0 ]; then
-            apt-get update -y
-            apt-get install -y "${PACCHETTI_MANCANTI[@]}"
+            apt-get update -y 2>/dev/null || true
+            for pkg in "${PACCHETTI_MANCANTI[@]}"; do
+                apt-get install -y "$pkg" 2>/dev/null || true
+            done
         elif command -v sudo &> /dev/null; then
-            sudo apt-get update -y
-            sudo apt-get install -y "${PACCHETTI_MANCANTI[@]}"
+            sudo apt-get update -y 2>/dev/null || true
+            for pkg in "${PACCHETTI_MANCANTI[@]}"; do
+                sudo apt-get install -y "$pkg" 2>/dev/null || true
+            done
         else
             echo "⚠️ Impossibile eseguire apt come root. Procedo con le verifiche locali."
         fi
@@ -171,13 +173,16 @@ fi
 # 3. Verifica dipendenze Python
 echo ""
 echo "📚 3. Installazione e verifica delle librerie Python..."
-# Se le librerie sono già ereditate dal sistema apt (ottimizzate a 32-bit), non serve ricompilare
-if ! "$DIR/venv/bin/python" -c "import flask, requests, PIL, pytesseract" &> /dev/null; then
-    echo "➡️ Installazione librerie mancanti tramite pip..."
-    if [ -f "$DIR/requirements.txt" ]; then
-        "$DIR/venv/bin/python" -m pip install -r "$DIR/requirements.txt" --no-warn-script-location --quiet 2>/dev/null || \
-        "$DIR/venv/bin/python" -m pip install "flask>=2.0" "requests>=2.20" "pillow>=8.0" "pytesseract>=0.3.7" --no-warn-script-location --quiet 2>/dev/null || true
-    fi
+# Installa o completa le dipendenze Python nell'ambiente virtuale
+"$DIR/venv/bin/python" -m pip install --upgrade pip --quiet --no-warn-script-location 2>/dev/null || true
+
+if [ -f "$DIR/requirements.txt" ]; then
+    "$DIR/venv/bin/python" -m pip install -r "$DIR/requirements.txt" --no-warn-script-location --quiet 2>/dev/null || true
+fi
+
+# Fallback specifico per pytesseract (libreria Python pura senza estensioni C)
+if ! "$DIR/venv/bin/python" -c "import pytesseract" &> /dev/null; then
+    "$DIR/venv/bin/python" -m pip install pytesseract --no-warn-script-location --quiet 2>/dev/null || true
 fi
 
 if "$DIR/venv/bin/python" -c "import flask, requests, PIL, pytesseract" &> /dev/null; then
