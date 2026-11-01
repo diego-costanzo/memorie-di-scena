@@ -145,7 +145,7 @@ Version=1.0
 Type=Application
 Name=1. CLICCA QUI PER AGGIORNARE
 Comment=Aggiorna automaticamente Memorie di Scena salvando tutti i tuoi libri
-Exec=/bin/bash -c "DIR=\"\$(cd \"\$(dirname \"%k\")\" && pwd)\"; bash \"\$DIR/AGGIORNA.sh\""
+Exec=/bin/bash -c "K=\"%k\"; K=\"\${K#file://}\"; D=\"\$(dirname \"\$K\")\"; if [ ! -f \"\$D/AGGIORNA.sh\" ]; then D=\".\"; fi; bash \"\$D/AGGIORNA.sh\""
 Icon=system-software-update
 Terminal=false
 Categories=Utility;
