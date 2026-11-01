@@ -41,11 +41,13 @@ cat << 'EOF' > "$TMP_DIR/AGGIORNA.sh"
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Funzione per mostrare messaggi a schermo (con finestra o notifica)
+# Funzione per mostrare messaggi a schermo (supporta KDE/Q4OS kdialog, Zenity o notifiche)
 mostra_avviso() {
     local titolo="$1"
     local testo="$2"
-    if command -v zenity &> /dev/null; then
+    if command -v kdialog &> /dev/null; then
+        kdialog --title "$titolo" --msgbox "$testo" 2>/dev/null || true
+    elif command -v zenity &> /dev/null; then
         zenity --info --title="$titolo" --text="$testo" --width=450 --timeout=8 2>/dev/null || true
     elif command -v notify-send &> /dev/null; then
         notify-send "$titolo" "$testo" 2>/dev/null || true
@@ -57,7 +59,9 @@ mostra_avviso() {
 mostra_errore() {
     local titolo="$1"
     local testo="$2"
-    if command -v zenity &> /dev/null; then
+    if command -v kdialog &> /dev/null; then
+        kdialog --title "$titolo" --error "$testo" 2>/dev/null || true
+    elif command -v zenity &> /dev/null; then
         zenity --error --title="$titolo" --text="$testo" --width=450 2>/dev/null || true
     else
         echo "ERRORE: $testo"
@@ -145,7 +149,7 @@ Version=1.0
 Type=Application
 Name=1. CLICCA QUI PER AGGIORNARE
 Comment=Aggiorna automaticamente Memorie di Scena salvando tutti i tuoi libri
-Exec=/bin/bash -c "K=\"%k\"; K=\"\${K#file://}\"; D=\"\$(dirname \"\$K\")\"; if [ ! -f \"\$D/AGGIORNA.sh\" ]; then D=\".\"; fi; bash \"\$D/AGGIORNA.sh\""
+Exec=/bin/bash -c "K=\"%k\"; K=\"\${K#file://}\"; D=\"\$(dirname \"\$K\")\"; if [ -f \"\$D/AGGIORNA.sh\" ]; then bash \"\$D/AGGIORNA.sh\"; elif [ -f \"./AGGIORNA.sh\" ]; then bash \"./AGGIORNA.sh\"; else (kdialog --title \"Memorie di Scena\" --error \"Attenzione: devi prima ESTRARRE la cartella zip!\\n\\nFai clic col tasto DESTRO sul file zip e scegli 'Estrai qui'.\" 2>/dev/null || zenity --error --title \"Memorie di Scena\" --text \"Attenzione: devi prima ESTRARRE la cartella zip!\\n\\nFai clic col tasto DESTRO sul file zip e scegli 'Estrai qui'.\" 2>/dev/null || true); fi"
 Icon=system-software-update
 Terminal=false
 Categories=Utility;
@@ -165,21 +169,21 @@ Ciao Alessio!
 Per aggiornare il tuo Archivio Teatrale con la nuova ricerca per
 citazione e togliere la finestra nera del terminale:
 
-👉 METODO 1 (CON IL MOUSE - NESSUN TERMINALE):
-   1. Fai clic con il TASTO DESTRO del mouse sul file "AGGIORNA.sh".
-   2. Nel menu a tendina che compare, clicca su "Esegui come programma"
-      (oppure su "Esegui").
-   3. Fatto! Comparirà una finestrella di conferma e si aprirà l'app.
+PASSO 1: ESTRAI LO ZIP
+Fai clic con il TASTO DESTRO sul file "Aggiornamento_MemorieDiScena.zip"
+e scegli "Estrai qui" (oppure clicca sul pulsante "Estrai" in alto).
 
-👉 SE PER SBAGLIO HAI FATTO DOPPIO CLIC SINISTRO:
-   Se si è aperta una finestra di testo con delle scritte di codice,
-   non ti preoccupare: chiudila con la 'X' in alto a destra,
-   poi fai clic con il TASTO DESTRO su "AGGIORNA.sh" e scegli "Esegui come programma".
+PASSO 2: AVVIA L'AGGIORNAMENTO
+Entra nella cartella estratta e:
+👉 Fai semplicemente doppio clic su: "1. CLICCA QUI PER AGGIORNARE"
+   (Se ti compare una finestrella con scritto cosa fare, premi "Esegui").
 
-👉 METODO 2 (SE IL TASTO DESTRO NON MOSTRA "ESEGUI"):
-   1. Fai clic con il TASTO DESTRO in un punto vuoto (bianco) della cartella.
-   2. Clicca su "Apri nel terminale".
-   3. Scrivi semplicemente:  ./AGGIORNA.sh   e premi INVIO.
+👉 In alternativa: fai clic col TASTO DESTRO su "AGGIORNA.sh"
+   e scegli "Esegui come programma" (oppure "Esegui").
+
+👉 SE PER SBAGLIO SI APRE UNA FINESTRA DI TESTO CON CODICE:
+   Non ti preoccupare: chiudila con la 'X' in alto a destra,
+   poi fai clic con il TASTO DESTRO su "AGGIORNA.sh" e scegli "Esegui".
 
 NON DEVI SPOSTARE NESSUN FILE A MANO.
 Il programma farà tutto da solo:

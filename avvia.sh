@@ -95,9 +95,12 @@ apri_browser() {
     elif command -v firefox &> /dev/null; then
         firefox "$url" &> /dev/null &
         return 0
-    # 3. Fallback universale Freedesktop (xdg-open)
+    # 3. Fallback universale Freedesktop (xdg-open) o Konqueror (Q4OS / TDE)
     elif command -v xdg-open &> /dev/null; then
         xdg-open "$url" &> /dev/null &
+        return 0
+    elif command -v konqueror &> /dev/null; then
+        konqueror "$url" &> /dev/null &
         return 0
     # 4. Fallback Python webbrowser
     else
