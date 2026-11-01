@@ -27,3 +27,7 @@ data/server.log
 data/*.log
 data/*backup*
 data/*.bak
+
+# Pacchetti di rilascio e aggiornamento
+Aggiornamento_*.zip
+Aggiornamento_*.tar.gz
