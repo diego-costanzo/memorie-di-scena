@@ -53,7 +53,7 @@ if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
 else
     echo "🎭 Avvio di Memorie di Scena in corso..."
     # Avvia in background disaccoppiato dal terminale (nohup + disown)
-    nohup "$PYTHON_BIN" "$APP_PY" >> "$LOG_FILE" 2>&1 &
+    PYTHONUNBUFFERED=1 nohup "$PYTHON_BIN" "$APP_PY" >> "$LOG_FILE" 2>&1 &
     SERVER_PID=$!
     disown "$SERVER_PID" 2>/dev/null || true
     echo "$SERVER_PID" > "$PID_FILE"

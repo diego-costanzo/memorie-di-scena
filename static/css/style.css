@@ -1724,6 +1724,8 @@ textarea.form-control {
 }
 
 .citazione-risultato-card {
+  flex-shrink: 0;
+  min-height: 120px;
   background: #ffffff;
   border: 2px solid #d4e8da;
   border-radius: 10px;

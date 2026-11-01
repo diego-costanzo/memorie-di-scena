@@ -69,8 +69,8 @@ function chiudiModali() {
 }
 
 function escapeHtml(text) {
-  if (!text) return '';
-  return text
+  if (text === null || text === undefined) return '';
+  return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -701,7 +701,12 @@ function eseguiRicercaCitazione() {
         });
       }
       
-      if (risultatiDiv) risultatiDiv.style.display = 'block';
+      if (risultatiDiv) {
+        risultatiDiv.style.display = 'block';
+        setTimeout(() => {
+          risultatiDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
+      }
     } else {
       // Nessun risultato
       if (nessuno) nessuno.style.display = 'block';

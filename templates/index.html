@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.2">
 </head>
 <body>
 
@@ -774,10 +774,12 @@
 
       <div class="modal-body">
 
-        <!-- Spiegazione chiara per Alessio -->
-        <div class="citazione-spiegazione">
-          <h3>🎭 Come funziona questa ricerca?</h3>
-          <p>
+        <!-- Spiegazione chiara per Alessio (Espandibile per non occupare spazio ai risultati) -->
+        <details class="citazione-spiegazione">
+          <summary style="cursor: pointer; font-size: 19px; font-weight: bold; color: #1a3a2a; outline: none; padding: 4px 0;">
+            🎭 Come funziona questa ricerca? (Consigli utili per trovare i libri)
+          </summary>
+          <p style="margin-top: 14px;">
             Scrivi una <strong>frase che ricordi</strong> da un libro, un copione o un testo e l'archivio cercherà 
             in <strong>tre grandi biblioteche digitali mondiali</strong> (Google Books, Open Library e Internet Archive)
             per trovare il libro o i libri che la contengono.
@@ -805,7 +807,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </details>
 
         <!-- Campo di ricerca -->
         <div class="citazione-ricerca-box">
@@ -910,7 +912,7 @@
   </div>
 
 
-  <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.2"></script>
 </body>
 </html>
