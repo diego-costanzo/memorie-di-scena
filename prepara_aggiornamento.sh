@@ -124,7 +124,7 @@ chmod +x "$DEST_DIR/avvia.sh" "$DEST_DIR/ferma.sh" "$DEST_DIR/installa.sh"
 
 # 5. Aggiorna l'icona sul desktop impostando l'avvio invisibile (senza terminale)
 if [ -x "$DEST_DIR/installa.sh" ]; then
-    (cd "$DEST_DIR" && bash ./installa.sh > /dev/null 2>&1)
+    (cd "$DEST_DIR" && bash ./installa.sh --solo-icone > /dev/null 2>&1)
 fi
 
 # 6. Avvia l'applicazione aggiornata
@@ -165,15 +165,29 @@ Ciao Alessio!
 Per aggiornare il tuo Archivio Teatrale con la nuova ricerca per
 citazione e togliere la finestra nera del terminale:
 
-👉 FAI SEMPLICEMENTE DOPPIO CLIC SUL FILE:
-   "CLICCA_QUI_PER_AGGIORNARE" (oppure su "AGGIORNA.sh")
+👉 METODO 1 (CON IL MOUSE - NESSUN TERMINALE):
+   1. Fai clic con il TASTO DESTRO del mouse sul file "AGGIORNA.sh".
+   2. Nel menu a tendina che compare, clicca su "Esegui come programma"
+      (oppure su "Esegui").
+   3. Fatto! Comparirà una finestrella di conferma e si aprirà l'app.
 
-NON DEVI SPOSTARE NULLA E NON DEVI USARE IL TERMINALE.
+👉 SE PER SBAGLIO HAI FATTO DOPPIO CLIC SINISTRO:
+   Se si è aperta una finestra di testo con delle scritte di codice,
+   non ti preoccupare: chiudila con la 'X' in alto a destra,
+   poi fai clic con il TASTO DESTRO su "AGGIORNA.sh" e scegli "Esegui come programma".
+
+👉 METODO 2 (SE IL TASTO DESTRO NON MOSTRA "ESEGUI"):
+   1. Fai clic con il TASTO DESTRO in un punto vuoto (bianco) della cartella.
+   2. Clicca su "Apri nel terminale".
+   3. Scrivi semplicemente:  ./AGGIORNA.sh   e premi INVIO.
+
+NON DEVI SPOSTARE NESSUN FILE A MANO.
 Il programma farà tutto da solo:
 1. Troverà la tua cartella in Documenti/Sardelli.
 2. Salverà una copia di sicurezza di tutti i tuoi libri.
 3. Aggiornerà il programma.
-4. Aprirà direttamente l'archivio pronto all'uso!
+4. Creerà l'icona sul Desktop per avviarlo d'ora in avanti senza terminale.
+5. Aprirà direttamente l'archivio pronto all'uso!
 
 Per qualsiasi cosa, Diego è sempre a disposizione.
 ==================================================================

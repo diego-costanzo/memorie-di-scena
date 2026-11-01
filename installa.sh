@@ -82,14 +82,17 @@ StartupNotify=true"
 # CONTROLLO IDEMPOTENZA: Se l'ambiente è già pronto, avvia subito l'app!
 # ------------------------------------------------------------------------------
 if [ -x "$DIR/venv/bin/python" ] && "$DIR/venv/bin/python" -c "import flask, requests, PIL, pytesseract" &> /dev/null; then
+    # Assicura che i lanciatori siano registrati e aggiornati
+    installa_lanciatori_desktop
+    chmod +x "$DIR/installa.sh" "$DIR/avvia.sh"
+    if [ "$1" = "--solo-icone" ]; then
+        exit 0
+    fi
     echo "=================================================================="
     echo "   🎭 MEMORIE DI SCENA"
     echo "=================================================================="
     echo "Archivio già configurato. Avvio in corso..."
     echo ""
-    # Assicura che i lanciatori siano registrati e aggiornati
-    installa_lanciatori_desktop
-    chmod +x "$DIR/installa.sh" "$DIR/avvia.sh"
     exec "$DIR/avvia.sh"
 fi
 
