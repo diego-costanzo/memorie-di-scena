@@ -439,64 +439,97 @@ body {
 }
 
 .toolbar-row-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
-/* Pulsante gigante Aggiungi */
+/* Base comune per i tre tasti giganti principali */
+.btn-aggiungi-grande,
+.btn-ocr-grande,
+.btn-citazione-grande {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  min-height: 76px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-aggiungi-grande:hover, .btn-aggiungi-grande:focus,
+.btn-ocr-grande:hover, .btn-ocr-grande:focus,
+.btn-citazione-grande:hover, .btn-citazione-grande:focus {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+.btn-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.btn-testo-box {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.btn-titolo-principale {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+.btn-sottotitolo {
+  font-size: 13.5px;
+  opacity: 0.88;
+  font-weight: normal;
+  margin-top: 2px;
+}
+
+/* Colori specifici ad alto contrasto per i 3 pulsanti */
+/* 1. Marrone cuoio / oro */
 .btn-aggiungi-grande {
   background: linear-gradient(180deg, #874a1f 0%, #5e3012 100%);
   color: #fff9ee;
   border: 3px solid var(--gold-accent);
-  border-radius: 10px;
-  padding: 16px 26px;
-  font-family: var(--font-serif);
-  font-size: 21px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  text-decoration: none;
 }
-
 .btn-aggiungi-grande:hover, .btn-aggiungi-grande:focus {
   background: linear-gradient(180deg, #9e5927 0%, #703b17 100%);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
   border-color: #f7d26d;
 }
 
-/* Pulsante gigante OCR Fotocamera */
+/* 2. Viola/Indaco teatrale */
 .btn-ocr-grande {
   background: linear-gradient(180deg, #372a4a 0%, #221830 100%);
   color: #fbf5ff;
   border: 3px solid #b898db;
-  border-radius: 10px;
-  padding: 16px 26px;
-  font-family: var(--font-serif);
-  font-size: 21px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  text-decoration: none;
 }
-
 .btn-ocr-grande:hover, .btn-ocr-grande:focus {
   background: linear-gradient(180deg, #493963 0%, #302344 100%);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
   border-color: #dfceff;
+}
+
+/* 3. Verde smeraldo biblioteca */
+.btn-citazione-grande {
+  background: linear-gradient(180deg, #1a4a2e 0%, #0f2d1b 100%);
+  color: #f0fff5;
+  border: 3px solid #3da667;
+}
+.btn-citazione-grande:hover, .btn-citazione-grande:focus {
+  background: linear-gradient(180deg, #225c39 0%, #153a22 100%);
+  border-color: #5ed18a;
 }
 
 /* Barra di ricerca comoda e grande */
@@ -1487,6 +1520,12 @@ textarea.form-control {
 /* --------------------------------------------------------------------------
    RESPONSIVITÀ PER SCHERMI VARI E NOTEBOOK
    -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .toolbar-row-top {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 992px) {
   .ocr-layout {
     grid-template-columns: 1fr;
@@ -1525,34 +1564,6 @@ textarea.form-control {
   }
 }
 
-
-/* ==========================================================================
-   PULSANTE RICERCA PER CITAZIONE / FRASE (VERDE SCURO BIBLIOTECA)
-   ========================================================================== */
-.btn-citazione-grande {
-  background: linear-gradient(180deg, #1a4a2e 0%, #0f2d1b 100%);
-  color: #f0fff5;
-  border: 3px solid #3da667;
-  border-radius: 10px;
-  padding: 16px 26px;
-  font-family: var(--font-serif);
-  font-size: 21px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-
-.btn-citazione-grande:hover, .btn-citazione-grande:focus {
-  background: linear-gradient(180deg, #225c39 0%, #153a22 100%);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
-  border-color: #5ed18a;
-}
 
 /* --------------------------------------------------------------------------
    MODALE: RICERCA PER CITAZIONE / FRASE (STILE BIBLIOTECA CLASSICA)

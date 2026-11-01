@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.3">
 </head>
 <body>
 
@@ -119,29 +119,32 @@
          ==================================================================== -->
     <section class="toolbar-section">
       <div class="toolbar-row-top">
-        <!-- Pulsante gigante Nuovo Elemento -->
-        <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()">
-          <span style="font-size: 28px;">📖➕</span>
-          <span>Aggiungi Nuovo Volume o Disco</span>
+        <!-- Pulsante gigante 1: Nuovo Elemento -->
+        <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()" title="Aggiungi manualmente un libro, copione o disco">
+          <span class="btn-icon">📖➕</span>
+          <div class="btn-testo-box">
+            <span class="btn-titolo-principale">Aggiungi Volume</span>
+            <span class="btn-sottotitolo">Libro, Copione o Disco</span>
+          </div>
         </button>
 
-        <!-- Pulsante gigante Acquisizione Rapida da Foto (OCR) -->
-        <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande">
-          <span style="font-size: 28px;">📸</span>
-          <span>Acquisizione Rapida da Foto (OCR)</span>
+        <!-- Pulsante gigante 2: Acquisizione Rapida da Foto (OCR) -->
+        <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande" title="Riconoscimento automatico da fotocamera o immagine">
+          <span class="btn-icon">📸</span>
+          <div class="btn-testo-box">
+            <span class="btn-titolo-principale">Acquisisci da Foto</span>
+            <span class="btn-sottotitolo">Lettura Copertina (OCR)</span>
+          </div>
         </a>
 
-        <!-- Pulsante gigante Cerca per Citazione / Frase -->
-        <button type="button" class="btn-citazione-grande" onclick="apriModalRicercaCitazione()">
-          <span style="font-size: 28px;">🔎📖</span>
-          <span>Cerca Libro per Frase o Citazione</span>
+        <!-- Pulsante gigante 3: Cerca per Citazione / Frase -->
+        <button type="button" class="btn-citazione-grande" onclick="apriModalRicercaCitazione()" title="Cerca libri ricordando una frase o citazione">
+          <span class="btn-icon">🔎📖</span>
+          <div class="btn-testo-box">
+            <span class="btn-titolo-principale">Cerca per Frase</span>
+            <span class="btn-sottotitolo">Trova libro da citazione</span>
+          </div>
         </button>
-
-        {% if prestiti_attivi %}
-        <a href="#sezionePrestitiAttivi" class="tab-btn" style="background: #fff0d8; border-color: #ba761e; color: #6e3a03;">
-          <span>📌 Vai ai Prestiti Attivi ({{ prestiti_attivi|length }})</span>
-        </a>
-        {% endif %}
       </div>
 
       <!-- Ricerca istantanea -->
@@ -913,6 +916,6 @@
 
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.2"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.3"></script>
 </body>
 </html>
