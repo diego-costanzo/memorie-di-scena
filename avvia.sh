@@ -52,9 +52,10 @@ if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
     echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
 else
     echo "🎭 Avvio di Memorie di Scena in corso..."
-    # Avvia in background disaccoppiato dal terminale (nohup)
+    # Avvia in background disaccoppiato dal terminale (nohup + disown)
     nohup "$PYTHON_BIN" "$APP_PY" >> "$LOG_FILE" 2>&1 &
     SERVER_PID=$!
+    disown "$SERVER_PID" 2>/dev/null || true
     echo "$SERVER_PID" > "$PID_FILE"
 
     # Attesa rapida disponibilità server (fino a 25 tentativi da 0.2s = 5s max)
