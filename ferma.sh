@@ -24,3 +24,4 @@ fi
 pkill -f "$DIR/app.py" 2>/dev/null || true
 echo "✅ Memorie di Scena è a riposo."
 exit 0
+

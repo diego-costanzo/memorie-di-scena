@@ -251,69 +251,6 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_elem ON appunti(elemento_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_testo ON appunti(testo);")
 
-        # 4. Elementi dimostrativi se vuoto
-        cursor.execute("SELECT COUNT(*) FROM elementi")
-        count = cursor.fetchone()[0]
-        if count == 0:
-            data_oggi = date.today().strftime("%d/%m/%Y")
-            
-            cursor.execute("""
-                INSERT INTO elementi (tipo, titolo, autore, collocazione_casa, note, copertina_path, data_inserimento,
-                                     regista, prima_esibizione_luogo, data_ingaggio, data_prima)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'Copione', 'La locandiera', 'Carlo Goldoni', 'Studio - Cassetto grande copioni',
-                'Copione con note di regia e battute annotate a matita. Ruolo di Fabrizio.',
-                '/static/covers/default_copione.svg', data_oggi,
-                'Giancarlo Cobelli', 'Teatro della Pergola, Firenze', '10/01/1988', '04/03/1988'
-            ))
-
-            cursor.execute("""
-                INSERT INTO elementi (tipo, titolo, autore, collocazione_casa, note, copertina_path, data_inserimento)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'Libro', 'Il nome della rosa', 'Umberto Eco', 'Salotto - Scaffale centrale, 2° ripiano',
-                'Prima edizione Bompiani con copertina rigida telata.',
-                '/static/covers/default_libro.svg', data_oggi
-            ))
-
-            cursor.execute("""
-                INSERT INTO elementi (tipo, titolo, autore, collocazione_casa, note, copertina_path, data_inserimento)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'Libro', 'Le città invisibili', 'Italo Calvino', 'Studio - Ripiano narrativa italiana',
-                'Edizione Einaudi tascabile.', '/static/covers/default_libro.svg', data_oggi
-            ))
-            libro_prestito_id = cursor.lastrowid
-
-            cursor.execute("""
-                INSERT INTO prestiti (elemento_id, nome_persona, data_prestito, data_rientro_prevista, stato)
-                VALUES (?, ?, ?, ?, 'In Prestito')
-            """, (libro_prestito_id, 'Franco (collega di compagnia)', data_oggi, '15 del mese prossimo'))
-
-        # Demo musicale se non presente
-        cursor.execute("SELECT COUNT(*) FROM elementi WHERE tipo = 'CD / Vinile'")
-        musica_count = cursor.fetchone()[0]
-        if musica_count == 0:
-            data_oggi = date.today().strftime("%d/%m/%Y")
-            cursor.execute("""
-                INSERT INTO elementi (tipo, titolo, autore, collocazione_casa, note, copertina_path, data_inserimento, formato, etichetta_anno)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                'CD / Vinile', 'Creuza de mä', 'Fabrizio De André', 'Salotto - Mobile giradischi',
-                'Stampa originale su vinile 33 giri. Uno dei dischi più cari della collezione.',
-                '/static/covers/default_musica.svg', data_oggi, 'Vinile LP', 'Ricordi, 1984'
-            ))
-            vinile_id = cursor.lastrowid
-
-            cursor.execute("""
-                INSERT INTO appunti (elemento_id, testo, data_creazione)
-                VALUES (?, ?, ?)
-            """, (
-                vinile_id,
-                'Un capolavoro che profuma di mare, salsedine e vicoli antichi. Da ascoltare la sera in poltrona con le luci soffuse.',
-                data_oggi
-            ))
 
 
 def scarica_copertina_web(titolo, autore, tipo, elemento_id):
@@ -453,6 +390,23 @@ def _scrivi_cache(chiave, dati):
     try:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(dati, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _pulisci_cache_scaduta():
+    """Rimuove automaticamente i file temporanei di cache più vecchi di 24 ore."""
+    try:
+        if os.path.exists(CACHE_DIR):
+            ora = datetime.now().timestamp()
+            for f in os.listdir(CACHE_DIR):
+                if f.endswith('.json'):
+                    fp = os.path.join(CACHE_DIR, f)
+                    if ora - os.path.getmtime(fp) > _CACHE_EXPIRY_SEC:
+                        try:
+                            os.remove(fp)
+                        except Exception:
+                            pass
     except Exception:
         pass
 

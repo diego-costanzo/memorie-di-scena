@@ -322,6 +322,27 @@
         </article>
         {% endfor %}
 
+        {% if totale == 0 %}
+        <!-- Riquadro di benvenuto per archivio pulito e pronto all'uso -->
+        <div class="nessun-risultato" style="display: block; border-style: solid; border-color: #d8c29d; background: #fffef8;">
+          <div class="nessun-risultato-icon">📖✨</div>
+          <h3 style="color: #44230d; font-size: 28px; margin-bottom: 12px;">Il tuo Taccuino di Palcoscenico è pronto!</h3>
+          <p style="color: #6d4b2e; font-size: 20px; max-width: 600px; margin: 0 auto 24px auto;">
+            L'archivio è pulito e pronto per accogliere i tuoi copioni teatrali, libri, dischi e ricordi di scena.
+          </p>
+          <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()">
+              <span style="font-size: 24px;">📖➕</span>
+              <span>Aggiungi il tuo Primo Volume o Copione</span>
+            </button>
+            <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande">
+              <span style="font-size: 24px;">📸</span>
+              <span>Acquisizione Rapida da Foto</span>
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
         <!-- Box mostrato quando nessun libro corrisponde alla ricerca -->
         <div id="nessunRisultatoBox" class="nessun-risultato" style="display: none;">
           <div class="nessun-risultato-icon">🧐</div>

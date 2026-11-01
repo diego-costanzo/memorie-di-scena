@@ -25,3 +25,5 @@ data/cache/
 data/server.pid
 data/server.log
 data/*.log
+data/*backup*
+data/*.bak
