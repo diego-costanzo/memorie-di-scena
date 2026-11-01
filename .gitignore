@@ -19,3 +19,9 @@ Thumbs.db
 # Script personale di backup sviluppatore
 backup.sh
 
+
+# Cache ricerche e file di runtime server
+data/cache/
+data/server.pid
+data/server.log
+data/*.log

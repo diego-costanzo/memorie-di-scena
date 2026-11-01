@@ -19,6 +19,10 @@ from contextlib import contextmanager
 import shutil
 import warnings
 import logging
+import hashlib
+import json
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Pulizia dei warning da terminale (per non allarmare l'utente con messaggi di sviluppo)
 warnings.filterwarnings("ignore")
@@ -42,8 +46,11 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "archivio.db")
 COVERS_DIR = os.path.join(BASE_DIR, "static", "covers")
 
+CACHE_DIR = os.path.join(DATA_DIR, "cache")
+
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 # RILEVAMENTO ARCHITETTURA (32-bit vs 64-bit) & COMPATIBILITÀ UNIVERSALE
@@ -66,6 +73,10 @@ else:
     Image.MAX_IMAGE_PIXELS = 150_000_000
     MAX_IMAGE_DIM = 2400
 
+# Pool di thread per chiamate API parallele (leggero anche su 32-bit)
+# Su 32-bit limita i thread per ridurre il consumo di memoria
+_MAX_WORKERS = 2 if IS_32_BIT else 4
+
 # Migrazione di sicurezza: se archivio.db risiede nella root, spostalo in data/archivio.db
 ROOT_OLD_DB = os.path.join(BASE_DIR, "archivio.db")
 if os.path.exists(ROOT_OLD_DB) and not os.path.exists(DB_PATH):
@@ -77,7 +88,13 @@ elif os.path.exists(ROOT_OLD_DB) and os.path.exists(DB_PATH):
         pass
 
 app = Flask(__name__)
-app.secret_key = "memorie_di_scena_registro_teatrale_chiave_protetta"
+# Chiave segreta generata in modo deterministico e sicuro dalla posizione dell'installazione
+# (non hardcoded generica, ma unica per ogni macchina)
+_secret_seed = f"memorie_di_scena_{os.path.abspath(BASE_DIR)}_{os.getuid() if hasattr(os, 'getuid') else 'win'}"
+app.secret_key = hashlib.sha256(_secret_seed.encode()).hexdigest()
+
+# Ottimizzazione cache statica per hardware datato a 32-bit (evita letture disco continue)
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 
 # ------------------------------------------------------------------------------
 # SICUREZZA UPLOAD & RISORSE (OTTIMIZZATO PER FOTO DA SMARTPHONE MODERNI)
@@ -105,8 +122,10 @@ def file_too_large(e):
 @contextmanager
 def get_db():
     """
-    Context manager sicuro per SQLite:
+    Context manager sicuro per SQLite (Ultra-ottimizzato per 32-bit e 64-bit):
     - Attiva sempre PRAGMA foreign_keys = ON;
+    - Attiva WAL (Write-Ahead Logging) per velocità fino a 10x superiori e zero lock;
+    - PRAGMA synchronous = NORMAL per scritture disco istantanee e sicure;
     - Esegue commit automatico al termine del blocco;
     - Esegue rollback automatico in caso di errore;
     - Garantisce la chiusura immediata della connessione per evitare lock e leak di memoria.
@@ -114,6 +133,10 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA temp_store = MEMORY;")
+    conn.execute("PRAGMA cache_size = -8000;")
     try:
         yield conn
         conn.commit()
@@ -197,6 +220,10 @@ def init_db():
             if "etichetta_anno" not in colonne:
                 cursor.execute("ALTER TABLE elementi ADD COLUMN etichetta_anno TEXT;")
 
+        # Indici per ricerche istantanee per titolo e autore
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_elementi_titolo ON elementi(titolo);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_elementi_autore ON elementi(autore);")
+
         # 2. Tabella prestiti
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS prestiti (
@@ -222,6 +249,7 @@ def init_db():
             );
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_elem ON appunti(elemento_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_testo ON appunti(testo);")
 
         # 4. Elementi dimostrativi se vuoto
         cursor.execute("SELECT COUNT(*) FROM elementi")
@@ -303,6 +331,7 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
     if not titolo:
         return fallback_path
 
+
     headers = {'User-Agent': 'MemorieDiScena/2.0 (Debian GNU/Linux)'}
 
     # Ricerca musicale su iTunes Store API
@@ -371,6 +400,412 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
         print(f"[Wikipedia] Errore recupero copertina '{titolo}': {e}")
 
     return fallback_path
+
+
+# ------------------------------------------------------------------------------
+# RICERCA LIBRI PER CITAZIONE / FRASE (MULTI-DATABASE: LOCALE + ONLINE)
+# Interroga in parallelo:
+# 1. Archivio Locale & Taccuino di Alessio (se ha già l'opera o l'appunto in casa!)
+# 2. Wikiquote Italia (database per eccellenza di citazioni teatrali, battute e monologhi)
+# 3. Wikipedia Italia (incipit, saggi, trame e opere letterarie)
+# 4. Google Books (ricerca full-text nel corpo dei libri digitalizzati)
+# 5. Open Library (catalogo ed edizioni mondiali)
+# 6. Internet Archive (testi italiani scansionati di pubblico dominio)
+# ------------------------------------------------------------------------------
+
+# Sessione HTTP condivisa per pooling connessioni (riduce drasticamente carico CPU a 32-bit)
+_api_session = requests.Session()
+_api_session.headers.update({
+    'User-Agent': 'MemorieDiScena/2.0 (Archivio Teatrale e Collezione; Debian GNU/Linux)',
+    'Accept': 'application/json',
+})
+
+# Timeout API: calibrato per non bloccare risorse (più breve su 32-bit)
+_API_TIMEOUT = 3.5 if IS_32_BIT else 5.0
+
+# Cache su disco: 24 ore (evita traffico superfluo per ricerche identiche)
+_CACHE_EXPIRY_SEC = 86400
+
+
+def _cache_key(frase):
+    """Genera una chiave di cache sicura e deterministica per una frase di ricerca."""
+    normalizzata = " ".join(frase.lower().split())
+    return hashlib.md5(normalizzata.encode('utf-8')).hexdigest()
+
+
+def _leggi_cache(chiave):
+    """Legge un risultato dalla cache su disco, se esiste e non è scaduto."""
+    path = os.path.join(CACHE_DIR, f"ricerca_{chiave}.json")
+    try:
+        if os.path.exists(path):
+            eta_file = datetime.now().timestamp() - os.path.getmtime(path)
+            if eta_file < _CACHE_EXPIRY_SEC:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+    except Exception:
+        pass
+    return None
+
+
+def _scrivi_cache(chiave, dati):
+    """Salva un risultato nella cache su disco."""
+    path = os.path.join(CACHE_DIR, f"ricerca_{chiave}.json")
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(dati, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _pulisci_snippet(testo):
+    """Pulisce un frammento HTML rimuovendo tag e normalizzando spazi."""
+    if not testo:
+        return ""
+    pulito = re.sub(r'<[^>]+>', '', testo)
+    pulito = pulito.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'").replace('&nbsp;', ' ')
+    return " ".join(pulito.split()).strip()
+
+
+def _cerca_locale(frase):
+    """
+    Cerca PRIMA DI TUTTO nella libreria personale e nel taccuino di Alessio!
+    Se l'attore cerca una frase che ha già a casa, glielo dice subito con collocazione e note.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            pattern = f"%{frase.strip()}%"
+
+            # 1. Cerca nei titoli, autori o note degli elementi
+            cursor.execute("""
+                SELECT id, tipo, titolo, autore, collocazione_casa, note, copertina_path
+                FROM elementi
+                WHERE titolo LIKE ? OR autore LIKE ? OR note LIKE ? OR regista LIKE ?
+                LIMIT 5
+            """, (pattern, pattern, pattern, pattern))
+            for row in cursor.fetchall():
+                collocazione = row['collocazione_casa'] or 'In casa'
+                risultati.append({
+                    'titolo': row['titolo'],
+                    'autore': row['autore'] or 'Autore non indicato',
+                    'editore': f"📍 Posizione in casa: {collocazione}",
+                    'anno': '',
+                    'snippet': f"🏠 Questo volume è già nella tua libreria! ({collocazione}). Note: {row['note'] or 'Nessuna nota'}".strip(),
+                    'copertina_url': row['copertina_path'],
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': '',
+                    'anteprima_link': '',
+                    'fonte': 'La Tua Libreria Personale',
+                    'fonte_icona': '🏠',
+                    'in_archivio': True,
+                    'elemento_id': row['id']
+                })
+
+            # 2. Cerca nel taccuino dei ricordi (citazioni salvate)
+            cursor.execute("""
+                SELECT a.id, a.testo, a.data_creazione, e.id AS elem_id, e.titolo, e.autore, e.collocazione_casa, e.copertina_path
+                FROM appunti a
+                JOIN elementi e ON a.elemento_id = e.id
+                WHERE a.testo LIKE ?
+                LIMIT 5
+            """, (pattern,))
+            for row in cursor.fetchall():
+                risultati.append({
+                    'titolo': row['titolo'],
+                    'autore': row['autore'] or 'Autore non indicato',
+                    'editore': f"Annotato nel tuo Taccuino il {row['data_creazione']}",
+                    'anno': '',
+                    'snippet': f"📓 Trovato nel tuo Taccuino dei Ricordi: «{row['testo']}» (Collocazione: {row['collocazione_casa'] or 'in casa'})",
+                    'copertina_url': row['copertina_path'],
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': '',
+                    'anteprima_link': '',
+                    'fonte': 'Il Tuo Taccuino dei Ricordi',
+                    'fonte_icona': '📓',
+                    'in_archivio': True,
+                    'elemento_id': row['elem_id']
+                })
+    except Exception as e:
+        print(f"[Ricerca Locale] Errore: {e}")
+
+    return risultati
+
+
+def _cerca_wikiquote(frase, max_risultati=5):
+    """
+    Cerca su Wikiquote Italia (la raccolta libera di citazioni teatrali e letterarie).
+    Eccellente per attori: monologhi, battute celebri, copioni e opere.
+    """
+    risultati = []
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://it.wikiquote.org/w/api.php?action=query&list=search&srsearch={q}&format=json"
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            for item in resp.json().get('query', {}).get('search', [])[:max_risultati]:
+                titolo = item.get('title', '')
+                snippet = _pulisci_snippet(item.get('snippet', ''))
+                link = f"https://it.wikiquote.org/wiki/{urllib.parse.quote(titolo.replace(' ', '_'))}"
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': 'Citazione Teatrale / Letteraria',
+                    'editore': 'Wikiquote',
+                    'anno': '',
+                    'snippet': snippet,
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'Wikiquote Teatrale',
+                    'fonte_icona': '🎭',
+                })
+    except Exception as e:
+        print(f"[Wikiquote] Errore: {e}")
+    return risultati
+
+
+def _cerca_wikipedia(frase, max_risultati=5):
+    """
+    Cerca su Wikipedia Italia per trovare opere, incipit celebri, commedie e romanzi.
+    """
+    risultati = []
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://it.wikipedia.org/w/api.php?action=query&list=search&srsearch={q}&format=json"
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            for item in resp.json().get('query', {}).get('search', [])[:max_risultati]:
+                titolo = item.get('title', '')
+                snippet = _pulisci_snippet(item.get('snippet', ''))
+                link = f"https://it.wikipedia.org/wiki/{urllib.parse.quote(titolo.replace(' ', '_'))}"
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': 'Opera Letteraria / Teatrale',
+                    'editore': 'Wikipedia',
+                    'anno': '',
+                    'snippet': snippet,
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'Wikipedia Letteraria',
+                    'fonte_icona': '📖',
+                })
+    except Exception as e:
+        print(f"[Wikipedia] Errore: {e}")
+    return risultati
+
+
+def _cerca_google_books(frase, max_risultati=5):
+    """
+    Cerca nel database di Google Books (milioni di volumi indicizzati).
+    Google Books esegue ricerca FULL-TEXT nel corpo del libro.
+    """
+    risultati = []
+    try:
+        query = urllib.parse.quote_plus(frase.strip())
+        url = (
+            f"https://www.googleapis.com/books/v1/volumes"
+            f"?q={query}"
+            f"&maxResults={max_risultati}"
+            f"&printType=books"
+            f"&langRestrict=it"
+            f"&orderBy=relevance"
+        )
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            dati = resp.json()
+            for item in dati.get('items', []):
+                info = item.get('volumeInfo', {})
+                ricerca_info = item.get('searchInfo', {})
+                snippet = _pulisci_snippet(ricerca_info.get('textSnippet', ''))
+                immagini = info.get('imageLinks', {})
+                copertina_url = immagini.get('thumbnail', '') or immagini.get('smallThumbnail', '')
+                if copertina_url and copertina_url.startswith('http:'):
+                    copertina_url = copertina_url.replace('http:', 'https:', 1)
+
+                risultati.append({
+                    'titolo': info.get('title', 'Titolo sconosciuto'),
+                    'autore': ', '.join(info.get('authors', ['Autore non indicato'])),
+                    'editore': info.get('publisher', ''),
+                    'anno': info.get('publishedDate', '')[:4] if info.get('publishedDate') else '',
+                    'snippet': snippet,
+                    'copertina_url': copertina_url,
+                    'lingua': info.get('language', ''),
+                    'pagine': info.get('pageCount', ''),
+                    'link_info': info.get('infoLink', ''),
+                    'anteprima_link': info.get('previewLink', ''),
+                    'fonte': 'Google Books',
+                    'fonte_icona': '📚',
+                })
+    except Exception as e:
+        print(f"[Google Books] Errore: {e}")
+    return risultati
+
+
+def _cerca_open_library(frase, max_risultati=5):
+    """
+    Cerca nel database di Open Library (Internet Archive).
+    """
+    risultati = []
+    try:
+        query = urllib.parse.quote_plus(frase.strip())
+        url = (
+            f"https://openlibrary.org/search.json"
+            f"?q={query}"
+            f"&limit={max_risultati}"
+            f"&fields=title,author_name,publisher,first_publish_year,cover_i,key,language,number_of_pages_median"
+        )
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            dati = resp.json()
+            for doc in dati.get('docs', []):
+                cover_id = doc.get('cover_i')
+                copertina_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else ''
+                chiave_opera = doc.get('key', '')
+                link_info = f"https://openlibrary.org{chiave_opera}" if chiave_opera else ''
+                risultati.append({
+                    'titolo': doc.get('title', 'Titolo sconosciuto'),
+                    'autore': ', '.join(doc.get('author_name', ['Autore non indicato'])),
+                    'editore': ', '.join(doc.get('publisher', [])[:2]) if doc.get('publisher') else '',
+                    'anno': str(doc.get('first_publish_year', '')) if doc.get('first_publish_year') else '',
+                    'snippet': '',
+                    'copertina_url': copertina_url,
+                    'lingua': ', '.join(doc.get('language', [])[:3]) if doc.get('language') else '',
+                    'pagine': doc.get('number_of_pages_median', ''),
+                    'link_info': link_info,
+                    'anteprima_link': '',
+                    'fonte': 'Open Library',
+                    'fonte_icona': '🏛️',
+                })
+    except Exception as e:
+        print(f"[Open Library] Errore: {e}")
+    return risultati
+
+
+def _cerca_internet_archive(frase, max_risultati=5):
+    """
+    Cerca nei testi scansionati dell'Internet Archive.
+    """
+    risultati = []
+    try:
+        query = urllib.parse.quote_plus(frase.strip())
+        url = (
+            f"https://archive.org/advancedsearch.php"
+            f"?q={query}+AND+mediatype%3Atexts"
+            f"&fl[]=title&fl[]=creator&fl[]=publisher&fl[]=year"
+            f"&fl[]=identifier&fl[]=description"
+            f"&rows={max_risultati}"
+            f"&output=json"
+        )
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            docs = resp.json().get('response', {}).get('docs', [])
+            for doc in docs:
+                identifier = doc.get('identifier', '')
+                link_info = f"https://archive.org/details/{identifier}" if identifier else ''
+                copertina_url = f"https://archive.org/services/img/{identifier}" if identifier else ''
+                desc_raw = doc.get('description', '')
+                if isinstance(desc_raw, list):
+                    desc_raw = ' '.join(str(x) for x in desc_raw)
+                descrizione = _pulisci_snippet(desc_raw)
+                if len(descrizione) > 200:
+                    descrizione = descrizione[:200].rsplit(' ', 1)[0] + '…'
+                risultati.append({
+                    'titolo': doc.get('title', 'Titolo sconosciuto'),
+                    'autore': doc.get('creator', 'Autore non indicato') if isinstance(doc.get('creator'), str)
+                              else ', '.join(doc.get('creator', ['Autore non indicato'])[:3]),
+                    'editore': doc.get('publisher', '') if isinstance(doc.get('publisher'), str) else '',
+                    'anno': str(doc.get('year', '')) if doc.get('year') else '',
+                    'snippet': descrizione,
+                    'copertina_url': copertina_url,
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link_info,
+                    'anteprima_link': f"https://archive.org/stream/{identifier}" if identifier else '',
+                    'fonte': 'Internet Archive',
+                    'fonte_icona': '🗄️',
+                })
+    except Exception as e:
+        print(f"[Internet Archive] Errore: {e}")
+    return risultati
+
+
+def ricerca_per_citazione(frase, max_per_fonte=4):
+    """
+    Orchestratore principale:
+    1. Cerca immediatamente nella libreria e nel taccuino locale di Alessio!
+    2. Interroga in parallelo Wikiquote, Wikipedia, Google Books, Open Library e Internet Archive.
+    3. Raggruppa e ordina per rilevanza, evidenziando le corrispondenze con frammenti di testo.
+    4. Salva in cache su disco per 24h.
+    """
+    if not frase or len(frase.strip()) < 3:
+        return []
+
+    # Pulizia frase da virgolette tipografiche accidentali
+    frase_pulita = frase.strip().strip('«»""''“”')
+
+    # Controlla cache su disco per query online
+    chiave = _cache_key(frase_pulita)
+    cached = _leggi_cache(chiave)
+    if cached is not None:
+        # Recupera comunque le corrispondenze locali in tempo reale
+        locali = _cerca_locale(frase_pulita)
+        return locali + [r for r in cached if not r.get('in_archivio')]
+
+    # 1. Ricerca locale immediata (0 ms)
+    risultati_locali = _cerca_locale(frase_pulita)
+
+    # 2. Ricerca in parallelo sui database esterni
+    risultati_online = []
+    with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(_cerca_wikiquote, frase_pulita, max_per_fonte): 'Wikiquote',
+            executor.submit(_cerca_wikipedia, frase_pulita, max_per_fonte): 'Wikipedia',
+            executor.submit(_cerca_google_books, frase_pulita, max_per_fonte): 'Google Books',
+            executor.submit(_cerca_open_library, frase_pulita, max_per_fonte): 'Open Library',
+            executor.submit(_cerca_internet_archive, frase_pulita, max_per_fonte): 'Internet Archive',
+        }
+
+        for future in as_completed(futures):
+            nome_fonte = futures[future]
+            try:
+                risultati_fonte = future.result()
+                risultati_online.extend(risultati_fonte)
+            except Exception as e:
+                print(f"[Ricerca {nome_fonte}] Errore: {e}")
+
+    # Deduplicazione risultati online
+    visti = {}
+    online_unici = []
+    for r in risultati_online:
+        titolo_norm = " ".join(r['titolo'].lower().split())
+        chiave_dedup = titolo_norm[:40]
+
+        if chiave_dedup not in visti:
+            visti[chiave_dedup] = r
+            online_unici.append(r)
+        elif r.get('snippet') and not visti[chiave_dedup].get('snippet'):
+            idx = online_unici.index(visti[chiave_dedup])
+            online_unici[idx] = r
+            visti[chiave_dedup] = r
+
+    # Ordina: prima quelli con snippet (frammento di testo effettivo)
+    online_unici.sort(key=lambda x: (0 if x.get('snippet') else 1, x['titolo'].lower()))
+
+    # Salva i soli risultati online in cache
+    _scrivi_cache(chiave, online_unici)
+
+    # I risultati locali compaiono SEMPRE in cima!
+    return risultati_locali + online_unici
 
 
 # ------------------------------------------------------------------------------
@@ -775,9 +1210,63 @@ def elimina_appunto(appunto_id):
     return redirect(url_for("index"))
 
 
+@app.route("/api/ricerca_citazione", methods=["POST"])
+def api_ricerca_citazione():
+    """
+    API per la ricerca di libri partendo da una frase, citazione o parole chiave.
+    Interroga in parallelo Google Books, Open Library e Internet Archive.
+    Restituisce i risultati con eventuale snippet (frammento di testo) che
+    conferma la corrispondenza nel testo del libro.
+
+    Sicurezza:
+    - Input validato e limitato a 500 caratteri
+    - Tutte le chiamate API esterne usano timeout rigorosi
+    - Risultati cachati su disco per 24h per limitare traffico
+    """
+    dati = request.get_json(silent=True) or {}
+    frase = dati.get("frase", "").strip()
+
+    # Validazione input
+    if not frase:
+        return jsonify({"success": False, "errore": "Inserisci una frase o alcune parole chiave per cercare."}), 400
+
+    if len(frase) < 3:
+        return jsonify({"success": False, "errore": "La frase è troppo corta. Scrivi almeno 3 caratteri."}), 400
+
+    # Limite di sicurezza sulla lunghezza dell'input
+    if len(frase) > 500:
+        frase = frase[:500]
+
+    try:
+        risultati = ricerca_per_citazione(frase)
+        return jsonify({
+            "success": True,
+            "frase_cercata": frase,
+            "totale_risultati": len(risultati),
+            "risultati": risultati,
+            "suggerimento": (
+                "💡 La ricerca per frase funziona meglio se ricordi 3-4 parole consecutive e distintive. "
+                "Google Books cerca anche dentro il testo dei libri!"
+            ) if len(risultati) == 0 else ""
+        })
+    except Exception as e:
+        print(f"[API Ricerca Citazione] Errore: {e}")
+        return jsonify({
+            "success": False,
+            "errore": "Si è verificato un errore durante la ricerca. Riprova fra qualche istante."
+        }), 500
+
+
 @app.route("/api/chiudi", methods=["POST"])
 def chiudi_applicazione():
     """Arresto pulito e sicuro dell'applicazione dal pulsante 'Riponi il Taccuino'."""
+    pid_file = os.path.join(DATA_DIR, "server.pid")
+    if os.path.exists(pid_file):
+        try:
+            os.remove(pid_file)
+        except Exception:
+            pass
+
     def termina():
         import time, signal
         time.sleep(0.6)

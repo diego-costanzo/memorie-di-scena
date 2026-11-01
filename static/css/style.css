@@ -1524,3 +1524,389 @@ textarea.form-control {
     flex-direction: column;
   }
 }
+
+
+/* ==========================================================================
+   PULSANTE RICERCA PER CITAZIONE / FRASE (VERDE SCURO BIBLIOTECA)
+   ========================================================================== */
+.btn-citazione-grande {
+  background: linear-gradient(180deg, #1a4a2e 0%, #0f2d1b 100%);
+  color: #f0fff5;
+  border: 3px solid #3da667;
+  border-radius: 10px;
+  padding: 16px 26px;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-citazione-grande:hover, .btn-citazione-grande:focus {
+  background: linear-gradient(180deg, #225c39 0%, #153a22 100%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+  border-color: #5ed18a;
+}
+
+/* --------------------------------------------------------------------------
+   MODALE: RICERCA PER CITAZIONE / FRASE (STILE BIBLIOTECA CLASSICA)
+   -------------------------------------------------------------------------- */
+
+/* Spiegazione introduttiva */
+.citazione-spiegazione {
+  background: #f4f9f5;
+  border: 2px solid #b8d8c0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.citazione-spiegazione h3 {
+  font-size: 22px;
+  color: #1a3a2a;
+  margin-bottom: 10px;
+}
+
+.citazione-spiegazione p {
+  font-size: 18px;
+  color: #2d4a38;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.citazione-consigli {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.consiglio-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #d4e8da;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #2e4a38;
+  line-height: 1.5;
+}
+
+.consiglio-icona {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Box di ricerca */
+.citazione-ricerca-box {
+  background: #fffef9;
+  border: 2px solid #d8c29d;
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.citazione-textarea {
+  min-height: 80px;
+  font-size: 20px !important;
+  line-height: 1.5;
+}
+
+.citazione-esempi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px 0;
+  align-items: center;
+}
+
+.citazione-chip {
+  background: #e8f5ea !important;
+  border-color: #7cc48a !important;
+  color: #1a4a2a !important;
+}
+
+.citazione-chip:hover {
+  background: #d0ebd4 !important;
+}
+
+.btn-cerca-citazione {
+  width: 100%;
+  background: linear-gradient(180deg, #1f6b2d 0%, #14481e 100%);
+  color: #ffffff;
+  border: 3px solid #0e3716;
+  border-radius: 10px;
+  padding: 18px 24px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: all 0.2s ease;
+}
+
+.btn-cerca-citazione:hover {
+  background: linear-gradient(180deg, #278336 0%, #1a5c25 100%);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Spinner di caricamento */
+.citazione-loading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #fff8e8;
+  border: 2px solid #d4af37;
+  border-radius: 10px;
+  padding: 22px;
+  margin: 20px 0;
+  font-size: 19px;
+  color: #5c3506;
+}
+
+.citazione-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #d4af37;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Header risultati */
+.citazione-risultati-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed #b8d8c0;
+}
+
+.citazione-risultati-header h3 {
+  font-size: 20px;
+  color: #1a3a2a;
+}
+
+.citazione-conteggio-badge {
+  background: #1f6b2d;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: bold;
+  padding: 5px 14px;
+  border-radius: 20px;
+}
+
+/* Griglia risultati */
+.citazione-risultati-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.citazione-risultato-card {
+  background: #ffffff;
+  border: 2px solid #d4e8da;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(26, 58, 42, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.citazione-risultato-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(26, 58, 42, 0.18);
+  border-color: #7cc48a;
+}
+
+.citazione-card-body {
+  display: flex;
+  gap: 18px;
+  padding: 18px;
+}
+
+/* Copertina nel risultato */
+.citazione-cover-box {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.citazione-cover-img {
+  width: 80px;
+  height: 115px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #c2a77a;
+  box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.citazione-cover-placeholder {
+  width: 80px;
+  height: 115px;
+  background: #f0ebe0;
+  border: 1px dashed #bba179;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.citazione-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.citazione-fonte-badge {
+  display: inline-block;
+  background: #e8f5ea;
+  color: #1a4a2a;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  border: 1px solid #b8d8c0;
+}
+
+.citazione-titolo-libro {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1a3a2a;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.citazione-autore-libro {
+  font-size: 17px;
+  color: #4a6a56;
+  font-style: italic;
+  margin-bottom: 6px;
+}
+
+.citazione-dettagli {
+  font-size: 14px;
+  color: #6a8a76;
+  margin-bottom: 8px;
+}
+
+/* Snippet (frammento di testo trovato) — evidenziato in modo speciale */
+.citazione-snippet {
+  background: #fffde8;
+  border: 1px solid #e8d88a;
+  border-left: 4px solid #c4993a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  font-size: 15px;
+  color: #3b2a0a;
+  line-height: 1.5;
+}
+
+.citazione-snippet em {
+  color: #5c3506;
+}
+
+/* Link di azione */
+.citazione-azioni {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.citazione-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0f8f2;
+  color: #1a4a2a;
+  border: 1px solid #b8d8c0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.citazione-link:hover {
+  background: #d4eeda;
+  color: #0f2d1b;
+}
+
+.citazione-link.anteprima {
+  background: #fff8e8;
+  border-color: #d4af37;
+  color: #5c3506;
+}
+
+.citazione-link.anteprima:hover {
+  background: #f5e8c8;
+}
+
+/* Nessun risultato */
+.citazione-nessun-risultato {
+  text-align: center;
+  padding: 40px 20px;
+  color: #4a6a56;
+}
+
+.citazione-nessun-risultato h3 {
+  font-size: 24px;
+  color: #1a3a2a;
+  margin: 12px 0;
+}
+
+.citazione-nessun-risultato p {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+
+/* Evidenziazione speciale per volumi già presenti nella collezione di casa */
+.citazione-risultato-card.in-libreria {
+  background: #fff9ed;
+  border: 3px solid #b87a1d;
+  box-shadow: 0 4px 14px rgba(184, 122, 29, 0.25);
+}
+
+.citazione-risultato-card.in-libreria .citazione-fonte-badge {
+  background: #783505;
+  color: #fff9ee;
+  border-color: #522302;
+  font-size: 14px;
+}
+
+.citazione-link.in-casa {
+  background: linear-gradient(180deg, #874a1f 0%, #5e3012 100%);
+  color: #fff9ee;
+  border: 2px solid #3b1e0a;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.citazione-link.in-casa:hover {
+  background: linear-gradient(180deg, #9e5927 0%, #703b17 100%);
+  color: #ffffff;
+}

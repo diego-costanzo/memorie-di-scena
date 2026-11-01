@@ -57,7 +57,7 @@ Comment=Memorie di Scena - Archivio Teatrale, Biblioteca e Collezione Personale
 Exec=/bin/bash \"$DIR/avvia.sh\"
 Path=$DIR
 Icon=accessories-dictionary
-Terminal=true
+Terminal=false
 Categories=Office;Database;
 StartupNotify=true"
 

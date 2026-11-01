@@ -564,3 +564,165 @@ function eseguiChiusuraApp() {
     window.close();
   });
 }
+
+
+
+// ==============================================================================
+// RICERCA LIBRO PER FRASE / CITAZIONE (MULTI-DATABASE ONLINE)
+// Interroga Google Books, Open Library e Internet Archive in parallelo
+// ==============================================================================
+
+function apriModalRicercaCitazione() {
+  chiudiModali();
+  // Reset stato precedente
+  const campo = document.getElementById('campo_citazione');
+  if (campo) campo.value = '';
+  
+  const loading = document.getElementById('citazioneLoading');
+  const risultati = document.getElementById('citazioneRisultati');
+  const nessuno = document.getElementById('citazioneNessunRisultato');
+  
+  if (loading) loading.style.display = 'none';
+  if (risultati) risultati.style.display = 'none';
+  if (nessuno) nessuno.style.display = 'none';
+  
+  const modal = document.getElementById('modalRicercaCitazione');
+  if (modal) {
+    modal.classList.add('active');
+    setTimeout(() => {
+      if (campo) campo.focus();
+    }, 150);
+  }
+}
+
+function eseguiRicercaCitazione() {
+  const campo = document.getElementById('campo_citazione');
+  const frase = campo ? campo.value.trim() : '';
+  
+  if (!frase || frase.length < 3) {
+    alert('Scrivi almeno 3 caratteri della frase che ricordi!');
+    if (campo) campo.focus();
+    return;
+  }
+  
+  const loading = document.getElementById('citazioneLoading');
+  const risultatiDiv = document.getElementById('citazioneRisultati');
+  const nessuno = document.getElementById('citazioneNessunRisultato');
+  const lista = document.getElementById('citazioneRisultatiLista');
+  
+  // Mostra spinner, nascondi il resto
+  if (loading) loading.style.display = 'flex';
+  if (risultatiDiv) risultatiDiv.style.display = 'none';
+  if (nessuno) nessuno.style.display = 'none';
+  
+  fetch('/api/ricerca_citazione', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ frase: frase })
+  })
+  .then(res => res.json())
+  .then(dati => {
+    if (loading) loading.style.display = 'none';
+    
+    if (!dati.success) {
+      alert(dati.errore || 'Si è verificato un errore nella ricerca.');
+      return;
+    }
+    
+    if (dati.risultati && dati.risultati.length > 0) {
+      // Mostra i risultati
+      const titolo = document.getElementById('citazioneRisultatiTitolo');
+      const conteggio = document.getElementById('citazioneRisultatiConteggio');
+      
+      if (titolo) titolo.textContent = '📚 Libri trovati per: «' + escapeHtml(frase) + '»';
+      if (conteggio) conteggio.textContent = dati.totale_risultati + ' risultat' + (dati.totale_risultati === 1 ? 'o' : 'i');
+      
+      if (lista) {
+        lista.innerHTML = '';
+        dati.risultati.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'citazione-risultato-card';
+          
+          let snippetHtml = '';
+          if (r.snippet) {
+            snippetHtml = `
+              <div class="citazione-snippet">
+                <strong>📝 Frammento di testo trovato:</strong><br>
+                <em>"${escapeHtml(r.snippet)}"</em>
+              </div>
+            `;
+          }
+          
+          let dettagliHtml = '';
+          if (r.editore || r.anno || r.pagine) {
+            const parti = [];
+            if (r.editore) parti.push('Editore: ' + escapeHtml(r.editore));
+            if (r.anno) parti.push('Anno: ' + escapeHtml(r.anno));
+            if (r.pagine) parti.push(r.pagine + ' pagine');
+            dettagliHtml = `<div class="citazione-dettagli">${parti.join(' • ')}</div>`;
+          }
+          
+          let linkHtml = '';
+          if (r.in_archivio) {
+            card.classList.add('in-libreria');
+            linkHtml = `<button type="button" class="citazione-link in-casa" onclick="chiudiModali(); apriModalModifica('${r.elemento_id}')">🏠 Apri Scheda & Ricordi nella tua Collezione →</button>`;
+          } else {
+            if (r.link_info) {
+              linkHtml = `<a href="${escapeHtml(r.link_info)}" target="_blank" rel="noopener noreferrer" class="citazione-link">📖 Vedi scheda completa →</a>`;
+            }
+            if (r.anteprima_link) {
+              linkHtml += ` <a href="${escapeHtml(r.anteprima_link)}" target="_blank" rel="noopener noreferrer" class="citazione-link anteprima">👁️ Anteprima testo</a>`;
+            }
+          }
+          
+          card.innerHTML = `
+            <div class="citazione-card-body">
+              <div class="citazione-cover-box">
+                ${r.copertina_url 
+                  ? `<img src="${escapeHtml(r.copertina_url)}" alt="Copertina" class="citazione-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                     <div class="citazione-cover-placeholder" style="display:none;">📖</div>`
+                  : `<div class="citazione-cover-placeholder">📖</div>`
+                }
+              </div>
+              <div class="citazione-card-content">
+                <div class="citazione-fonte-badge">${r.fonte_icona || '📚'} ${escapeHtml(r.fonte || 'Database')}</div>
+                <h4 class="citazione-titolo-libro">${escapeHtml(r.titolo)}</h4>
+                <div class="citazione-autore-libro">di ${escapeHtml(r.autore)}</div>
+                ${dettagliHtml}
+                ${snippetHtml}
+                <div class="citazione-azioni">
+                  ${linkHtml}
+                </div>
+              </div>
+            </div>
+          `;
+          
+          lista.appendChild(card);
+        });
+      }
+      
+      if (risultatiDiv) risultatiDiv.style.display = 'block';
+    } else {
+      // Nessun risultato
+      if (nessuno) nessuno.style.display = 'block';
+    }
+  })
+  .catch(err => {
+    if (loading) loading.style.display = 'none';
+    console.error('Errore ricerca citazione:', err);
+    alert('Si è verificato un errore di connessione. Verifica che Internet sia disponibile e riprova.');
+  });
+}
+
+// Supporto tasto INVIO nel campo di ricerca citazione
+document.addEventListener('DOMContentLoaded', () => {
+  const campoCitazione = document.getElementById('campo_citazione');
+  if (campoCitazione) {
+    campoCitazione.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        eseguiRicercaCitazione();
+      }
+    });
+  }
+});

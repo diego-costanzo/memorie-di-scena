@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# SCRIPT DI AVVIO QUOTIDIANO - MEMORIE DI SCENA
+# SCRIPT DI AVVIO VELOCE E SILENZIOSO - MEMORIE DI SCENA
 # Archivio Teatrale e Collezione Personale
-# Risolve percorsi assoluti, verifica l'ambiente, avvia l'app locale e
-# apre automaticamente il browser predefinito a tutto schermo.
-# Gestione sicura dei segnali per terminazione pulita (SIGTERM).
+# - Esegue in background senza necessità di tenere aperto il terminale.
+# - Verifica se l'app è già attiva per non duplicare processi.
+# - Apre automaticamente il browser predefinito a tutto schermo.
+# - Arresto pulito tramite il tasto 'Riponi il Taccuino' nell'interfaccia
+#   oppure tramite lo script ./ferma.sh.
 # ==============================================================================
 
 set -e
@@ -38,67 +40,39 @@ fi
 PYTHON_BIN="$DIR/venv/bin/python"
 APP_PY="$DIR/app.py"
 APP_URL="http://127.0.0.1:5000"
+PID_FILE="$DIR/data/server.pid"
+LOG_FILE="$DIR/data/server.log"
 
-echo "=================================================================="
-echo "   🎭 MEMORIE DI SCENA"
-echo "   Archivio Teatrale, Biblioteca e Collezione Personale"
-echo "=================================================================="
-echo ""
-echo "Caricamento dell'applicazione in corso..."
+mkdir -p "$DIR/data"
 
 # ------------------------------------------------------------------------------
-# 2. CONTROLLO SERVER E GESTIONE PROCESSO FLASK
+# 2. CONTROLLO SERVER E AVVIO IN BACKGROUND
 # ------------------------------------------------------------------------------
-SERVER_PID=""
 if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
-    echo "L'archivio è già in esecuzione su $APP_URL"
+    echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
 else
-    # Avvia l'app in background
-    "$PYTHON_BIN" "$APP_PY" &
+    echo "🎭 Avvio di Memorie di Scena in corso..."
+    # Avvia in background disaccoppiato dal terminale (nohup)
+    nohup "$PYTHON_BIN" "$APP_PY" >> "$LOG_FILE" 2>&1 &
     SERVER_PID=$!
+    echo "$SERVER_PID" > "$PID_FILE"
 
-    # Gestione pulita e sicura del segnale di arresto (SIGTERM)
-    cleanup() {
-        # Disarma i trap per prevenire chiamate ricorsive su EXIT
-        trap - SIGINT SIGTERM SIGHUP EXIT
-        echo ""
-        echo "Chiusura di Memorie di Scena in corso..."
-        if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
-            kill -TERM "$SERVER_PID" 2>/dev/null || true
-            wait "$SERVER_PID" 2>/dev/null || true
-        fi
-        echo "Arrivederci!"
-        exit 0
-    }
-    trap cleanup SIGINT SIGTERM SIGHUP EXIT
-
-    # Attesa che il server Flask risponda (massimo 30 tentativi da 0.5s)
+    # Attesa rapida disponibilità server (fino a 25 tentativi da 0.2s = 5s max)
     TENTATIVI=0
-    MASSIMO_TENTATIVI=30
     SERVER_PRONTO=0
-
-    while [ "$TENTATIVI" -lt "$MASSIMO_TENTATIVI" ]; do
+    while [ "$TENTATIVI" -lt 25 ]; do
         if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
             SERVER_PRONTO=1
             break
         fi
-        sleep 0.5
+        sleep 0.2
         TENTATIVI=$((TENTATIVI + 1))
     done
 
     if [ "$SERVER_PRONTO" -ne 1 ]; then
-        echo "Attenzione: il server sta impiegando più tempo del previsto ad avviarsi."
+        echo "⚠️ Attenzione: il server sta impiegando più tempo del previsto ad avviarsi."
     fi
 fi
-
-echo ""
-echo "------------------------------------------------------------------"
-echo "✅ MEMORIE DI SCENA È PRONTO!"
-echo "Indirizzo locale: $APP_URL"
-echo "Apertura automatica della libreria a schermo intero..."
-echo "------------------------------------------------------------------"
-echo "💡 NOTA: Per chiudere l'archivio, premi [CTRL] + [C] in questa finestra."
-echo ""
 
 # ------------------------------------------------------------------------------
 # 3. APERTURA AUTOMATICA NEL BROWSER PREDEFINITO
@@ -113,12 +87,12 @@ apri_browser() {
     elif command -v google-chrome &> /dev/null; then
         google-chrome --start-maximized --app="$url" &> /dev/null &
         return 0
-    # 2. Se è presente Firefox ESR (predefinito Debian) o Firefox standard: modalità Kiosk
+    # 2. Se è presente Firefox ESR (predefinito Debian) o Firefox standard
     elif command -v firefox-esr &> /dev/null; then
-        firefox-esr --kiosk "$url" &> /dev/null &
+        firefox-esr "$url" &> /dev/null &
         return 0
     elif command -v firefox &> /dev/null; then
-        firefox --kiosk "$url" &> /dev/null &
+        firefox "$url" &> /dev/null &
         return 0
     # 3. Fallback universale Freedesktop (xdg-open)
     elif command -v xdg-open &> /dev/null; then
@@ -133,7 +107,10 @@ apri_browser() {
 
 apri_browser "$APP_URL"
 
-# Se abbiamo avviato noi il server Flask, attendiamo che termini o riceva il segnale di chiusura
-if [ -n "$SERVER_PID" ]; then
-    wait "$SERVER_PID"
-fi
+echo "------------------------------------------------------------------"
+echo "✅ MEMORIE DI SCENA È ATTIVO!"
+echo "🌐 Indirizzo locale: $APP_URL"
+echo "📕 Per chiudere: clicca 'Riponi il Taccuino' nell'app oppure esegui ./ferma.sh"
+echo "------------------------------------------------------------------"
+echo "💡 Il terminale può essere chiuso tranquillamente: l'app rimane attiva."
+exit 0

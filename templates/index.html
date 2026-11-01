@@ -131,6 +131,12 @@
           <span>Acquisizione Rapida da Foto (OCR)</span>
         </a>
 
+        <!-- Pulsante gigante Cerca per Citazione / Frase -->
+        <button type="button" class="btn-citazione-grande" onclick="apriModalRicercaCitazione()">
+          <span style="font-size: 28px;">🔎📖</span>
+          <span>Cerca Libro per Frase o Citazione</span>
+        </button>
+
         {% if prestiti_attivi %}
         <a href="#sezionePrestitiAttivi" class="tab-btn" style="background: #fff0d8; border-color: #ba761e; color: #6e3a03;">
           <span>📌 Vai ai Prestiti Attivi ({{ prestiti_attivi|length }})</span>
@@ -731,6 +737,122 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
+       MODALE 6: RICERCA LIBRO PER FRASE / CITAZIONE (MULTI-DATABASE)
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalRicercaCitazione">
+    <div class="modal-window" style="max-width: 900px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #1a3a2a 0%, #0d1f16 100%);">
+        <h2 class="modal-title">🔎📖 Cerca un Libro per Frase o Citazione</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <div class="modal-body">
+
+        <!-- Spiegazione chiara per Alessio -->
+        <div class="citazione-spiegazione">
+          <h3>🎭 Come funziona questa ricerca?</h3>
+          <p>
+            Scrivi una <strong>frase che ricordi</strong> da un libro, un copione o un testo e l'archivio cercherà 
+            in <strong>tre grandi biblioteche digitali mondiali</strong> (Google Books, Open Library e Internet Archive)
+            per trovare il libro o i libri che la contengono.
+          </p>
+          <div class="citazione-consigli">
+            <div class="consiglio-item">
+              <span class="consiglio-icona">✅</span>
+              <div>
+                <strong>Funziona bene se:</strong> ricordi almeno <strong>3-4 parole consecutive</strong> 
+                esattamente come erano scritte nel libro.
+              </div>
+            </div>
+            <div class="consiglio-item">
+              <span class="consiglio-icona">💡</span>
+              <div>
+                <strong>Consiglio da attore:</strong> Prova a ricordare le parole più <em>rare</em> o <em>distintive</em> 
+                della frase. Parole comuni come "il", "che", "era" da sole non aiutano.
+              </div>
+            </div>
+            <div class="consiglio-item">
+              <span class="consiglio-icona">⚠️</span>
+              <div>
+                <strong>Attenzione alle traduzioni:</strong> Se il libro è una traduzione (es. Shakespeare, Dostoevskij), 
+                edizioni diverse usano parole diverse. Cerca preferibilmente nella lingua originale o prova parole chiave.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campo di ricerca -->
+        <div class="citazione-ricerca-box">
+          <label for="campo_citazione" class="form-label" style="font-size: 22px;">
+            ✍️ Scrivi la frase o le parole che ricordi:
+          </label>
+          <textarea id="campo_citazione" class="form-control citazione-textarea" 
+                    placeholder="Es: «In mezzo al cammin di nostra vita mi ritrovai per una selva oscura» oppure «Essere o non essere questo è il dilemma»..."
+                    rows="3"></textarea>
+          
+          <div class="citazione-esempi">
+            <span style="font-size: 15px; color: #5a3e26;">Esempi rapidi:</span>
+            <button type="button" class="chip-btn citazione-chip" 
+                    onclick="document.getElementById('campo_citazione').value='nel mezzo del cammin di nostra vita'; eseguiRicercaCitazione();">
+              Dante - Inferno
+            </button>
+            <button type="button" class="chip-btn citazione-chip" 
+                    onclick="document.getElementById('campo_citazione').value='quel ramo del lago di Como'; eseguiRicercaCitazione();">
+              Manzoni - Promessi Sposi
+            </button>
+            <button type="button" class="chip-btn citazione-chip" 
+                    onclick="document.getElementById('campo_citazione').value='chi è di scena'; eseguiRicercaCitazione();">
+              Chi è di scena?
+            </button>
+          </div>
+
+          <button type="button" class="btn-cerca-citazione" onclick="eseguiRicercaCitazione()">
+            🔎 CERCA NEI DATABASE MONDIALI
+          </button>
+        </div>
+
+        <!-- Indicatore di caricamento -->
+        <div id="citazioneLoading" class="citazione-loading" style="display: none;">
+          <div class="citazione-loading-spinner"></div>
+          <div>
+            <strong>Ricerca in corso nelle biblioteche digitali mondiali...</strong><br>
+            <span style="font-size: 16px; color: #6d4a2b;">
+              Sto interrogando Google Books, Open Library e Internet Archive.<br>
+              Potrebbe impiegare qualche secondo — sii paziente! 🎭
+            </span>
+          </div>
+        </div>
+
+        <!-- Area risultati -->
+        <div id="citazioneRisultati" style="display: none;">
+          <div class="citazione-risultati-header">
+            <h3 id="citazioneRisultatiTitolo"></h3>
+            <span id="citazioneRisultatiConteggio" class="citazione-conteggio-badge"></span>
+          </div>
+          <div id="citazioneRisultatiLista" class="citazione-risultati-grid">
+            <!-- Riempito dinamicamente da JavaScript -->
+          </div>
+        </div>
+
+        <!-- Suggerimento se nessun risultato -->
+        <div id="citazioneNessunRisultato" class="citazione-nessun-risultato" style="display: none;">
+          <div style="font-size: 48px;">🤔</div>
+          <h3>Nessun libro trovato con questa frase</h3>
+          <p>Non scoraggiarti! Prova con:</p>
+          <ul style="text-align: left; max-width: 500px; margin: 0 auto; font-size: 18px; line-height: 1.8;">
+            <li>Meno parole (solo le 3-4 più caratteristiche)</li>
+            <li>Sinonimi o varianti delle parole che ricordi</li>
+            <li>Solo il cognome dell'autore se lo ricordi</li>
+            <li>Parole nella lingua originale del libro</li>
+          </ul>
+        </div>
+
+      </div>
     </div>
   </div>
 
