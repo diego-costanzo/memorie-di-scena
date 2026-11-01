@@ -52,8 +52,12 @@ if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
     echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
 else
     echo "🎭 Avvio di Memorie di Scena in corso..."
-    # Avvia in background disaccoppiato dal terminale (nohup + disown)
-    PYTHONUNBUFFERED=1 nohup "$PYTHON_BIN" "$APP_PY" >> "$LOG_FILE" 2>&1 &
+    # Avvia in background completamente disaccoppiato da sessione e terminale (setsid/nohup + disown)
+    if command -v setsid &> /dev/null; then
+        PYTHONUNBUFFERED=1 setsid "$PYTHON_BIN" "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
+    else
+        PYTHONUNBUFFERED=1 nohup "$PYTHON_BIN" "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
+    fi
     SERVER_PID=$!
     disown "$SERVER_PID" 2>/dev/null || true
     echo "$SERVER_PID" > "$PID_FILE"
