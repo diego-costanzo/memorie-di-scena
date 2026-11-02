@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# SCRIPT PER CREARE IL PACCHETTO DI AGGIORNAMENTO AUTOMATICO PER ALESSIO
+# SCRIPT PER CREARE IL PACCHETTO DI AGGIORNAMENTO AUTOMATICO
 # Genera uno ZIP con installatore intelligente che:
-# 1. Trova automaticamente la cartella Documenti/Sardelli
+# 1. Trova automaticamente la cartella dell'applicazione nei Documenti
 # 2. Salva una copia di sicurezza del database esistente
 # 3. Aggiorna solo i file di programma
 # 4. Aggiorna l'icona sul Desktop togliendo il terminale
 # 5. Avvia direttamente il programma aggiornato
-# Zero spostamenti manuali, zero terminale per Alessio.
+# Zero spostamenti manuali, zero terminale.
 # ==============================================================================
 
 set -e
@@ -16,12 +16,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
 NOME_ZIP="Aggiornamento_MemorieDiScena.zip"
-TMP_DIR="/tmp/pacchetto_aggiornamento_alessio"
+TMP_DIR="/tmp/pacchetto_aggiornamento_memorie_di_scena"
 
 rm -rf "$TMP_DIR" "$DIR/$NOME_ZIP"
 mkdir -p "$TMP_DIR"
 
-echo "📦 Preparazione pacchetto sicuro per Alessio..."
+echo "📦 Preparazione pacchetto di aggiornamento sicuro..."
 
 # 1. Copia i file aggiornati del programma (MAI il database)
 cp "$DIR/app.py" "$TMP_DIR/"
@@ -68,10 +68,14 @@ mostra_errore() {
     fi
 }
 
-# 1. Ricerca automatica della cartella di Alessio (Sardelli in Documenti)
+# 1. Ricerca automatica della cartella di installazione
 DEST_DIR=""
 POSSIBILI_PERCORSI=(
+    "$HOME/Documenti/MemorieDiScena"
+    "$HOME/Documenti/memorie-di-scena"
+    "$HOME/Documenti/ArchivioLibri"
     "$HOME/Documenti/Sardelli"
+    "$HOME/Documents/MemorieDiScena"
     "$HOME/Documents/Sardelli"
     "$HOME/Documenti/AI - Progetti/Sardelli"
     "$HOME/Documenti/AI - Progetti/Sardelli - ArchivioLibri"
@@ -88,14 +92,14 @@ done
 
 # Se non trovata nei percorsi standard, cerca con find
 if [ -z "$DEST_DIR" ]; then
-    TROVATA=$(find "$HOME" -maxdepth 4 -type d -name "Sardelli" 2>/dev/null | head -n 1)
+    TROVATA=$(find "$HOME" -maxdepth 4 -type d \( -name "MemorieDiScena" -o -name "memorie-di-scena" -o -name "Sardelli" -o -name "ArchivioLibri" \) 2>/dev/null | head -n 1)
     if [ -n "$TROVATA" ] && [ -f "$TROVATA/app.py" ]; then
         DEST_DIR="$TROVATA"
     fi
 fi
 
 if [ -z "$DEST_DIR" ]; then
-    mostra_errore "Memorie di Scena" "Non sono riuscito a trovare la cartella 'Sardelli' nei Documenti.\n\nContatta Diego per verificare la posizione della cartella."
+    mostra_errore "Memorie di Scena" "Non sono riuscito a trovare la cartella di Memorie di Scena nei Documenti.\n\nVerifica che la cartella del programma sia presente."
     exit 1
 fi
 
@@ -107,7 +111,7 @@ else
     pkill -f "$DEST_DIR/app.py" > /dev/null 2>&1 || true
 fi
 
-# 3. SALVAGUARDIA DEI DATI DI ALESSIO: Backup del database
+# 3. SALVAGUARDIA DEI DATI ESISTENTI: Backup del database
 mkdir -p "$DEST_DIR/data"
 if [ -f "$DEST_DIR/data/archivio.db" ]; then
     DATA_ORA=$(date '+%Y%m%d_%H%M%S')
@@ -134,7 +138,7 @@ fi
 # 6. Avvia l'applicazione aggiornata
 (cd "$DEST_DIR" && bash ./avvia.sh > /dev/null 2>&1 &)
 
-# 7. Conferma a video per Alessio
+# 7. Conferma a video
 mostra_avviso "Memorie di Scena" "🎭 Aggiornamento completato con successo!\n\nTutti i tuoi libri, copioni e ricordi sono al sicuro.\nLa nuova ricerca per citazione è attiva e da adesso l'app si avvia direttamente senza finestra del terminale."
 
 exit 0
@@ -158,13 +162,13 @@ EOF
 
 chmod +x "$TMP_DIR/CLICCA_QUI_PER_AGGIORNARE.desktop"
 
-# 4. Crea un file di istruzioni chiarissimo a caratteri grandi per Alessio
+# 4. Crea un file di istruzioni chiarissimo a caratteri grandi
 cat << 'EOF' > "$TMP_DIR/ISTRUZIONI_SEMPLICI.txt"
 ==================================================================
         🎭 AGGIORNAMENTO DI MEMORIE DI SCENA
 ==================================================================
 
-Ciao Alessio!
+Ciao!
 
 Per aggiornare il tuo Archivio Teatrale con la nuova ricerca per
 citazione e togliere la finestra nera del terminale:
@@ -186,14 +190,14 @@ Entra nella cartella estratta e:
    poi fai clic con il TASTO DESTRO su "AGGIORNA.sh" e scegli "Esegui".
 
 NON DEVI SPOSTARE NESSUN FILE A MANO.
-Il programma farà tutto da solo:
-1. Troverà la tua cartella in Documenti/Sardelli.
-2. Salverà una copia di sicurezza di tutti i tuoi libri.
+Il programma farà tutto da solo in pochi secondi:
+1. Troverà automaticamente la cartella dell'archivio nei Documenti.
+2. Salverà una copia di sicurezza di tutti i tuoi dati e libri.
 3. Aggiornerà il programma.
 4. Creerà l'icona sul Desktop per avviarlo d'ora in avanti senza terminale.
 5. Aprirà direttamente l'archivio pronto all'uso!
 
-Per qualsiasi cosa, Diego è sempre a disposizione.
+Buona consultazione del tuo archivio teatrale!
 ==================================================================
 EOF
 
@@ -213,7 +217,7 @@ print('✅ Pacchetto ZIP generato con successo: ' + nome_zip)
 
 rm -rf "$TMP_DIR"
 echo "------------------------------------------------------------------"
-echo "🛡️ Zero spostamenti manuali per Alessio."
-echo "🛡️ Trova Documenti/Sardelli in automatico."
+echo "🛡️ Zero spostamenti manuali per l'utente."
+echo "🛡️ Rilevamento automatico della cartella di installazione."
 echo "🛡️ Backup del database prima di qualsiasi operazione."
 echo "------------------------------------------------------------------"

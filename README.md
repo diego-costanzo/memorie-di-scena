@@ -1,47 +1,60 @@
 # 🎭 Memorie di Scena
-### *Archivio Teatrale, Biblioteca e Collezione Personale*
+### *Un taccuino digitale artigianale per catalogare libri, copioni e ricordi — senza complicazioni e senza pretese.*
 
-Applicazione web locale, autonoma, leggera e ad alta leggibilità sviluppata per **Debian GNU/Linux** (e derivate Ubuntu/Arch), concepita come un caldo ed elegante taccuino di palcoscenico d'altri tempi.
-Perfettamente compatibile e ottimizzata sia per architetture **32-bit (i686/i386)** che **64-bit (x86_64)**.
+[![Piattaforma](https://img.shields.io/badge/Piattaforma-Linux%20(Debian%2C%20Q4OS%2C%20Ubuntu)-1b4332.svg)](#requisiti-e-compatibilit%C3%A0)
+[![Architettura](https://img.shields.io/badge/Architettura-32--bit%20(i686)%20%7C%2064--bit%20(x86__64)-2d6a4f.svg)](#requisiti-e-compatibilit%C3%A0)
+[![Database](https://img.shields.io/badge/Database-SQLite%20Locale%20(100%25%20Privato)-40916c.svg)](#la-filosofia-del-progetto)
+[![Licenza](https://img.shields.io/badge/Licenza-Open%20Source%20(MIT)-52b788.svg)](#licenza)
 
 ---
 
-## 🌟 Caratteristiche Principali
+## 📖 La Filosofia del Progetto
 
-- **Design a Taccuino di Palcoscenico & Alta Leggibilità**:
-  - Tavolozza calda ispirata ai teatri storici all'italiana (velluto bordeaux, carta antica a mano e finiture in oro antico).
-  - Caratteri grandi (>= 19px), pulsanti ad alto contrasto e interfaccia ergonomica a prova di errore.
-  - Zero framework pesanti, zero dipendenze CDN esterne: funziona al 100% offline.
+Spesso i software moderni di catalogazione sono freddi, sovradimensionati o richiedono registrazioni su cloud, abbonamenti e menu pieni di opzioni tecniche superflue. Per chi **non ha molta dimestichezza con il computer** o preferisce le cose semplici, utilizzare questi strumenti può risultare faticoso o disorientante.
 
-- **Modello Dati Completo (SQLite Nativo & WAL Mode Ultra-Veloce)**:
-  - 📖 **Libri**: Titolo, autore, collocazione in casa, editore/note, copertina.
-  - 🎭 **Copioni Teatrali**: Regista, prima esibizione/teatro, data d'ingaggio, data della prima.
-  - 🎵 **CD & Vinili**: Formato (Vinile LP, 45 giri, CD), artista/gruppo, etichetta/anno.
-  - 🤝 **Registro Prestiti**: Tracciamento di chi ha in prestito volumi o copioni, promemoria visivo immediato e chiusura del rientro con 1 clic.
-  - 📝 **Taccuino dei Ricordi**: Sezione appunti legata a ciascuna opera per conservare citazioni, memorie di prove, repliche e dediche.
+**Memorie di Scena** nasce da un'esigenza umana e genuina: offrire un **archivio domestico basilare, accogliente e rilassante**, pensato come un caldo taccuino teatrale d'altri tempi. È uno strumento a misura di persona:
+- **Tasti giganti e chiari:** per chi non ama dover mirare a pulsantini microscopici.
+- **Caratteri grandi e ad alto contrasto:** pensati per chi non ci vede benissimo e non vuole affaticare la vista.
+- **Zero terminali da usare nel quotidiano:** una volta installato, si avvia con un semplice doppio clic sull'icona della Scrivania e si apre direttamente nel browser predefinito.
+- **Nessuna pretesa:** fa poche cose, ma le fa bene e con garbo, senza pretendere che l'utente sia un informatico.
 
-- **🔎 Ricerca Libri per Frase o Citazione (Multi-Database)**:
-  - **Libreria Personale & Taccuino Locale**: verifica istantaneamente se Alessio ha già il volume a casa o se ha annotato la frase nei suoi appunti!
-  - **Wikiquote Italia**: banca dati per eccellenza di citazioni teatrali, battute di commedie, monologhi d'autore e drammaturgie.
-  - **Wikipedia Italia**: ricerca di incipit celebri, romanzi, trame ed estratti letterari.
-  - **Google Books**: ricerca full-text nel corpo dei milioni di libri scansionati.
-  - **Open Library & Internet Archive**: catalogo mondiale di edizioni e testi scansionati di pubblico dominio.
-  - **Cache su Disco (24h) & Session Pooling**: risparmia memoria e banda su connessioni lente e computer datati.
+---
 
-- **Modulo OCR Locale con Tesseract & Pillow**:
-  - Acquisizione rapida da fotografia (frontespizio o copertina).
-  - Riconoscimento ottico del testo in locale (lingua italiana) senza inviare immagini a server esterni.
-  - Compilazione facilitata della scheda con pulsanti rapidi `[+ Titolo]`, `[+ Autore]`, `[+ Note]`.
+## 🌟 Cosa puoi fare con Memorie di Scena?
 
-- **Avvio Semplice in Background (Nessun Terminale Aperto)**:
-  - Lanciatore Desktop standard (`Terminal=false`): un clic sull'icona della Scrivania avvia il server in silenzio e apre direttamente il browser.
-  - Nessuna finestra nera del terminale da tenere aperta!
-  - Chiusura comoda dal pulsante **«📕 Riponi il Taccuino (Esci)»** nell'interfaccia o tramite `./ferma.sh`.
+### 📚 1. Catalogare la tua collezione di casa
+Puoi registrare con pochi campi chiari i tuoi volumi:
+- **Libri:** Titolo, autore, collocazione in casa (es. *Libreria salotto*, *Comodino camera*), note e copertina.
+- **Copioni Teatrali:** Con dettagli cari a chi calca le scene o ama il teatro (regista, teatro della prima, anno d'ingaggio, note di scena).
+- **Musica (CD e Vinili):** Formato (LP 33 giri, 45 giri, CD), artista, etichetta discografica e anno.
 
-- **Protezione, Sicurezza e Compatibilità 32-bit**:
-  - Database SQLite con WAL Mode, synchronous NORMAL e indici per velocità 5-10x superiore anche su vecchi dischi meccanici.
-  - Allocazione memoria calibrata: Pillow limita la dimensione RAM delle immagini prima dell'elaborazione per non saturare i sistemi a 32-bit.
-  - Chiamate esterne con timeout rigidi e gestione automatica di rate-limit (nessun blocco dell'interfaccia).
+### 🤝 2. Ricordare sempre chi ha i tuoi libri in prestito
+A chi non è mai capitato di prestare un libro prezioso o un copione a un amico e dimenticare a chi è stato dato?
+- Un pannello ben visibile mostra subito chi ha in custodia un tuo volume e da quale data.
+- Quando il libro torna a casa, basta un clic sul pulsante **«Restituito»** per rimetterlo a posto nell'archivio.
+
+### 📝 3. Il Taccuino dei Ricordi per ogni opera
+Ogni scheda ha una sezione dedicata alle memorie personali: puoi annotare una dedica trovata sul frontespizio, una citazione che ti ha colpito, ricordi delle prove teatrali, battute amate o pensieri legati a quella lettura.
+
+### 🔎 4. Ricercare un libro da una frase che ricordi a memoria
+Ti è mai capitato di ricordare mezza battuta o una frase memorabile senza riuscire a ricordare il titolo del libro?
+- Inserisci le poche parole che ricordi (es. *«nel mezzo del cammin»* oppure *«chi è di scena»*).
+- L'archivio controlla prima di tutto tra i **tuoi volumi e i tuoi appunti** di casa.
+- Se non lo trova a casa, cerca in parallelo nelle più grandi biblioteche digitali aperte: **Wikiquote** (specializzato in battute e citazioni teatrali), **Wikipedia** letteraria, **Google Books** e **Open Library**.
+
+### 📸 5. Acquisizione rapida da foto (OCR)
+Per chi fatica a digitare lunghi testi sulla tastiera:
+- Basta caricare o scattare una fotografia della copertina o del frontespizio.
+- Il riconoscimento testo integrato (OCR in italiano) legge il testo dall'immagine e ti permette di inserire titolo, autore e note con un semplice tocco.
+
+---
+
+## 🛡️ Riservatezza, Semplicità e Rispetto dell'Hardware
+
+* **100% Locale e Privato:** Tutti i tuoi dati, i libri, i ricordi e le note risiedono esclusivamente nel file `data/archivio.db` sul tuo computer. Nessun dato personale viene caricato su server esterni o nel cloud.
+* **Funziona anche Offline:** L'archivio funziona regolarmente anche senza connessione Internet (la rete è richiesta solo per cercare citazioni online o scaricare copertine dal web).
+* **Adatto a PC vecchi o riciclati (32-bit e 64-bit):** Testato con cura per funzionare perfettamente sia su computer moderni a 64 bit che su **vecchi computer a 32 bit** con poca memoria (ideale su distribuzioni leggere come **Q4OS**, Debian, antiX o Linux Mint).
+* **Nessuna finestra nera del terminale:** All'avvio, il programma lavora silenziosamente in background e apre la schermata nel browser; per chiudere basta premere il pulsante rosso **«📕 Riponi il Taccuino (Esci)»**.
 
 ---
 
@@ -49,47 +62,67 @@ Perfettamente compatibile e ottimizzata sia per architetture **32-bit (i686/i386
 
 ```text
 memorie-di-scena/
-├── app.py                      # Backend Flask protetto (motore multi-database, context manager)
-├── avvia.sh                    # Script di avvio rapido in background (apre il browser, senza terminale)
-├── ferma.sh                    # Script di arresto sicuro del server locale
-├── installa.sh                 # Installatore idempotente (pacchetti apt, venv, lanciatore desktop)
-├── requirements.txt            # Dipendenze Python minime (flask, requests, pillow, pytesseract)
-├── .gitignore                  # Esclusione cache e ambiente virtuale
+├── app.py                      # Il motore dell'applicazione (Flask e SQLite nativo)
+├── avvia.sh                    # Script di avvio silenzioso (apre il browser senza terminale)
+├── ferma.sh                    # Script per chiudere l'applicazione in modo pulito
+├── installa.sh                 # Installatore semplice (prepara l'ambiente e crea l'icona sul Desktop)
+├── prepara_aggiornamento.sh    # Strumento per creare pacchetti di aggiornamento sicuri
+├── requirements.txt            # Dipendenze Python minime e standard
 ├── data/
-│   ├── archivio.db             # Database SQLite con tutti i record, prestiti e memorie
-│   ├── server.pid              # PID del server locale in esecuzione
-│   └── cache/                  # Cache ricerche citazioni (24h)
+│   └── archivio.db             # Il tuo database personale (libri, copioni, appunti e prestiti)
 ├── static/
-│   ├── css/
-│   │   └── style.css           # Foglio di stile libreria classica & teatro d'altri tempi
-│   ├── js/
-│   │   └── app.js              # Logica frontend vanilla (filtri, citazioni, modali)
-│   └── covers/                 # Copertine salvate in locale e SVG predefiniti dorati
+│   ├── css/style.css           # Grafica accogliente a taccuino con tasti grandi
+│   ├── js/app.js               # Comportamenti semplici per la pagina (senza librerie esterne)
+│   └── covers/                 # Copertine salvate in locale e illustrazioni dorate
 └── templates/
-    ├── index.html              # Pannello principale dell'archivio (con ricerca per citazione)
-    └── acquisizione_ocr.html   # Interfaccia a due colonne per scansione fotografica
+    ├── index.html              # Registro generale e catalogo principale
+    └── acquisizione_ocr.html   # Scheda di lettura facilitata da fotografia
 ```
 
 ---
 
-## 🚀 Installazione e Avvio
+## 🚀 Come si installa e si avvia
 
-### 1. Configurazione Iniziale (Una tantum)
-Apri un terminale nella cartella del progetto ed esegui:
+### 1. Prima installazione (da fare una sola volta)
+Apri un terminale nella cartella del programma ed esegui:
+
 ```bash
 ./installa.sh
 ```
-Lo script:
-1. Verifica e installa i pacchetti di sistema necessari (`python3-venv`, `tesseract-ocr`, `tesseract-ocr-ita`).
-2. Configura l'ambiente virtuale isolato `venv/`.
-3. Crea automaticamente il lanciatore desktop **«Memorie di Scena»** sulla **Scrivania** e nel **Menu Applicazioni** di Debian (senza terminale nero visibile).
 
-### 2. Avvio Quotidiano
-Fai doppio clic sull'icona **«Memorie di Scena»** sulla Scrivania (oppure da terminale `./avvia.sh`).
-L'applicazione si avvia in background e apre automaticamente il browser su `http://127.0.0.1:5000`.
+Lo script si occupa di tutto da solo:
+1. Verifica la presenza di Python e dei componenti di base per l'OCR.
+2. Crea l'ambiente isolato per l'archivio senza toccare il resto del sistema.
+3. Posiziona una comoda icona **«Memorie di Scena»** direttamente sulla tua **Scrivania** (Desktop) e nel menu delle applicazioni.
 
-### 3. Come Chiudere l'Archivio
-Clicca semplicemente sul pulsante **«📕 Riponi il Taccuino (Esci)»** in alto a destra nell'applicazione web, oppure da terminale esegui:
-```bash
-./ferma.sh
-```
+### 2. Uso quotidiano
+Fai semplicemente doppio clic sull'icona **«Memorie di Scena»** sulla Scrivania (oppure avvia con `./avvia.sh`).  
+L'applicazione si aprirà direttamente nel tuo browser abituale. Non serve tenere aperto nessun terminale!
+
+### 3. Come chiudere l'archivio
+Quando hai finito di consultare o aggiornare i tuoi libri, clicca sul pulsante in alto a destra:  
+👉 **«📕 Riponi il Taccuino (Esci)»**  
+Il programma salverà tutto e si arresterà in modo pulito.
+
+---
+
+## 💻 Requisiti di Sistema
+
+* **Sistema Operativo:** Qualsiasi distribuzione Linux (Debian, Q4OS, Ubuntu, Linux Mint, Fedora, Arch, ecc.).
+* **Architettura:** Compatibile sia con **32-bit (x86 / i686)** sia con **64-bit (x86_64)**.
+* **Memoria RAM:** Funziona fluidamente anche con soli **512 MB – 1 GB** di RAM.
+* **Spazio su Disco:** Meno di 150 MB (incluso l'ambiente Python e il motore OCR).
+
+---
+
+## 🤝 Contributi e Spirito del Progetto
+
+Questo progetto non ha l'ambizione di competere con software bibliotecari complessi o gestionali professionali. È nato con amore come gesto di cura e attenzione verso chi desidera uno strumento limpido, comprensibile e privo di ostacoli tecnologici.
+
+Se hai idee per renderlo ancora più accessibile, intuitivo o gradevole per persone anziane o poco esperte di tecnologia, sentiti libero di aprire una *Issue* o proporre una modifica (*Pull Request*).
+
+---
+
+## 📄 Licenza
+
+Rilasciato sotto licenza open source [MIT](LICENSE). Sentiti libero di usarlo, condividerlo, regalarlo ad amici o parenti e migliorarlo per chiunque ne abbia bisogno.

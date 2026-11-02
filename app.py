@@ -66,7 +66,7 @@ else:
     RESAMPLE_FILTER = getattr(Image, "ANTIALIAS", 1)
 
 if IS_32_BIT:
-    # Su sistemi a 32-bit (es. PC datato di Alessio) ottimizza l'uso della RAM e spazio indirizzi
+    # Su sistemi a 32-bit o hardware datato ottimizza l'uso della RAM e spazio indirizzi
     Image.MAX_IMAGE_PIXELS = 50_000_000
     MAX_IMAGE_DIM = 1800
 else:
@@ -342,7 +342,7 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
 # ------------------------------------------------------------------------------
 # RICERCA LIBRI PER CITAZIONE / FRASE (MULTI-DATABASE: LOCALE + ONLINE)
 # Interroga in parallelo:
-# 1. Archivio Locale & Taccuino di Alessio (se ha già l'opera o l'appunto in casa!)
+# 1. Archivio Locale & Taccuino personale (se l'opera o l'appunto è già presente nella collezione!)
 # 2. Wikiquote Italia (database per eccellenza di citazioni teatrali, battute e monologhi)
 # 3. Wikipedia Italia (incipit, saggi, trame e opere letterarie)
 # 4. Google Books (ricerca full-text nel corpo dei libri digitalizzati)
@@ -422,8 +422,8 @@ def _pulisci_snippet(testo):
 
 def _cerca_locale(frase):
     """
-    Cerca PRIMA DI TUTTO nella libreria personale e nel taccuino di Alessio!
-    Se l'attore cerca una frase che ha già a casa, glielo dice subito con collocazione e note.
+    Cerca PRIMA DI TUTTO nella libreria personale e nel proprio taccuino!
+    Se l'utente cerca una frase che ha già nella propria collezione, lo segnala subito con collocazione e note.
     """
     risultati = []
     if not frase or len(frase.strip()) < 3:
@@ -696,7 +696,7 @@ def _cerca_internet_archive(frase, max_risultati=5):
 def ricerca_per_citazione(frase, max_per_fonte=4):
     """
     Orchestratore principale:
-    1. Cerca immediatamente nella libreria e nel taccuino locale di Alessio!
+    1. Cerca immediatamente nella libreria e nel taccuino locale!
     2. Interroga in parallelo Wikiquote, Wikipedia, Google Books, Open Library e Internet Archive.
     3. Raggruppa e ordina per rilevanza, evidenziando le corrispondenze con frammenti di testo.
     4. Salva in cache su disco per 24h.
