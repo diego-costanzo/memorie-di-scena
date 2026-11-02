@@ -40,10 +40,13 @@ Ogni scheda ha una sezione dedicata alle memorie personali: puoi annotare una de
 Ti è mai capitato di ricordare mezza battuta, una frase memorabile o un motivo senza riuscire a ricordare il titolo esatto?
 - Inserisci le parole che ricordi (es. *«nel mezzo del cammin»*, *«mirandolina cavaliere»*, *«chi è di scena»* o un artista/brano).
 - L'archivio controlla prima di tutto tra i **tuoi volumi, dischi e ricordi personali** di casa.
-- Se non lo trova a casa, cerca in parallelo in **8 grandi archivi digitali aperti e gratuiti**:
+- Se non lo trova a casa, cerca in parallelo in **11 grandi archivi digitali aperti e gratuiti**:
   - 🏛️ **OPAC SBN (Servizio Bibliotecario Nazionale):** Il catalogo ufficiale delle biblioteche pubbliche e statali italiane, con schede storiche, editori e codici BID.
   - 📜 **Wikisource:** La biblioteca libera con testi integrali di commedie, tragedie e copioni teatrali italiani (Goldoni, Pirandello, Alfieri, ecc.) con atti e scene.
-  - 🎵 **MusicBrainz:** L'enciclopedia aperta mondiale per dischi in vinile (LP, 45 giri), CD, album e tracce musicali.
+  - 📖 **Liber Liber (Progetto Manuzio):** La storica biblioteca digitale no-profit italiana con copioni, ePub e audiolibri scaricabili gratuitamente.
+  - 🎵 **MusicBrainz:** L'enciclopedia aperta mondiale per dischi in vinile (LP 33 giri, 45 giri), CD, album e tracce musicali con copertine d'epoca.
+  - 🔬 **Crossref:** Oltre 150 milioni di saggi critici, monografie e pubblicazioni accademiche per approfondimento e studio drammaturgico.
+  - 🌐 **Project Gutenberg:** Più di 70.000 capolavori classici della letteratura mondiale di pubblico dominio.
   - 🎭 **Wikiquote:** La raccolta libera di citazioni, battute celebri e monologhi teatrali.
   - 📖 **Wikipedia:** Voci enciclopediche, schede d'opera e trame letterarie.
   - 📚 **Google Books, Open Library e Internet Archive:** Milioni di testi mondiali e scansioni storiche di pubblico dominio.

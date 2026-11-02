@@ -14,6 +14,7 @@ import os
 import sys
 import sqlite3
 import urllib.parse
+import html
 from datetime import datetime, date
 from contextlib import contextmanager
 import shutil
@@ -74,7 +75,7 @@ else:
     MAX_IMAGE_DIM = 2400
 
 # Pool di thread per chiamate API parallele (I/O bound, leggero anche su 32-bit)
-_MAX_WORKERS = 4 if IS_32_BIT else 8
+_MAX_WORKERS = 6 if IS_32_BIT else 12
 
 # Migrazione di sicurezza: se archivio.db risiede nella root, spostalo in data/archivio.db
 ROOT_OLD_DB = os.path.join(BASE_DIR, "archivio.db")
@@ -847,16 +848,154 @@ def _cerca_musicbrainz(frase, max_risultati=4):
     return risultati
 
 
+def _cerca_liber_liber(frase, max_risultati=3):
+    """
+    Cerca nel catalogo di Liber Liber (Progetto Manuzio).
+    La storica biblioteca digitale no-profit italiana: migliaia di libri, copioni teatrali,
+    commedie e audiolibri liberamente scaricabili e consultabili legalmente in formato aperto.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://www.liberliber.it/wp-json/wp/v2/search?search={q}&per_page={max_risultati}"
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            for it in resp.json():
+                titolo_raw = it.get('title', 'Senza titolo')
+                titolo = html.unescape(titolo_raw).replace('&#8220;', '«').replace('&#8221;', '»').replace('&#8217;', "'").strip()
+                link = it.get('url', '')
+
+                # Estrazione eventuale autore dal titolo (es. "... di Luigi Pirandello")
+                autore = 'Letteratura & Teatro Italiano'
+                m_autore = re.search(r'\bdi\s+([A-ZÀ-Ú][a-zà-ù]+(?:\s+[A-ZÀ-Ú][a-zà-ù]+)+)', titolo)
+                if m_autore:
+                    autore = m_autore.group(1)
+
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': autore,
+                    'editore': 'Liber Liber (Progetto Manuzio)',
+                    'anno': '',
+                    'snippet': "Opera libera da diritti del Progetto Manuzio. Testo, ePub, PDF o audiolibro disponibili per il download gratuito.",
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'Liber Liber (Progetto Manuzio)',
+                    'fonte_icona': '📖',
+                })
+    except Exception as e:
+        print(f"[Liber Liber] Errore: {e}")
+    return risultati
+
+
+def _cerca_crossref(frase, max_risultati=3):
+    """
+    Cerca nell'archivio mondiale di Crossref (oltre 150 milioni di pubblicazioni, saggi,
+    monografie, atti di convegno e studi critici di drammaturgia e letteratura).
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://api.crossref.org/works?query.bibliographic={q}&rows={max_risultati}"
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            items = resp.json().get('message', {}).get('items', [])
+            for it in items:
+                titles = it.get('title', [])
+                titolo = titles[0] if titles else 'Titolo sconosciuto'
+                authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in it.get('author', []) if isinstance(a, dict)]
+                autore = ', '.join(authors) if authors else 'Autore / Critico teatrale'
+                publisher = it.get('publisher', '')
+                date_parts = it.get('published-print', {}).get('date-parts') or it.get('published-online', {}).get('date-parts') or []
+                anno = str(date_parts[0][0]) if date_parts and date_parts[0] else ''
+                doi = it.get('DOI', '')
+                link = f"https://doi.org/{doi}" if doi else it.get('URL', '')
+
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': autore,
+                    'editore': f"Studio critico: {publisher}" if publisher else 'Saggio / Monografia',
+                    'anno': anno,
+                    'snippet': f"Studio critico e saggio di approfondimento d'autore (DOI: {doi or 'N/D'}). Ideale per ricerca e studio drammaturgico.",
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'Crossref (Saggi & Studi Critici)',
+                    'fonte_icona': '🔬',
+                })
+    except Exception as e:
+        print(f"[Crossref] Errore: {e}")
+    return risultati
+
+
+def _cerca_gutenberg(frase, max_risultati=3):
+    """
+    Cerca nel catalogo di Project Gutenberg (70.000 grandi classici mondiali di pubblico dominio).
+    Utilizza un timeout calibrato molto breve per non rallentare mai le altre fonti.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://gutendex.com/books/?search={q}"
+        # Timeout breve a 2 secondi per salvaguardare la fluidità complessiva
+        resp = _api_session.get(url, timeout=2.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            for b in data.get('results', [])[:max_risultati]:
+                titolo = b.get('title', 'Senza titolo')
+                authors = [a.get('name', '') for a in b.get('authors', [])]
+                autore = ', '.join(authors) if authors else 'Autore non indicato'
+                formats = b.get('formats', {})
+                copertina = formats.get('image/jpeg', '')
+                link = f"https://www.gutenberg.org/ebooks/{b.get('id')}"
+                read_link = formats.get('text/html') or formats.get('text/plain; charset=utf-8') or ''
+
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': autore,
+                    'editore': 'Project Gutenberg (Pubblico Dominio)',
+                    'anno': '',
+                    'snippet': "Opera classica mondiale di pubblico dominio. Testo integrale scaricabile e consultabile online gratuitamente.",
+                    'copertina_url': copertina,
+                    'lingua': ', '.join(b.get('languages', ['it'])),
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': read_link,
+                    'fonte': 'Project Gutenberg',
+                    'fonte_icona': '🌐',
+                })
+    except Exception:
+        # Se il server gratuito Gutendex è momentaneamente lento, cede il passo alle altre fonti
+        pass
+    return risultati
+
+
 def ricerca_per_citazione(frase, max_per_fonte=4):
     """
     Orchestratore principale:
     1. Cerca immediatamente nella libreria e nel taccuino locale!
-    2. Interroga in parallelo 8 fonti esterne:
+    2. Interroga in parallelo 11 fonti esterne:
        - Wikiquote (citazioni e battute)
        - Wikipedia (opere e voci enciclopediche)
        - Wikisource (copioni e testi integrali)
        - OPAC SBN (Catalogo Ufficiale Biblioteche Italiane)
        - MusicBrainz (dischi, vinili e musica)
+       - Liber Liber (Progetto Manuzio, testi e copioni aperti italiani)
+       - Crossref (saggi critici e studi d'autore)
+       - Project Gutenberg (grandi classici di pubblico dominio)
        - Google Books (full-text e libri digitalizzati)
        - Open Library (catalogo bibliografico mondiale)
        - Internet Archive (scansioni e testi storici)
@@ -889,6 +1028,9 @@ def ricerca_per_citazione(frase, max_per_fonte=4):
             executor.submit(_cerca_wikisource, frase_pulita, max_per_fonte): 'Wikisource',
             executor.submit(_cerca_opac_sbn, frase_pulita, max_per_fonte): 'OPAC SBN',
             executor.submit(_cerca_musicbrainz, frase_pulita, max_per_fonte): 'MusicBrainz',
+            executor.submit(_cerca_liber_liber, frase_pulita, max_per_fonte): 'Liber Liber',
+            executor.submit(_cerca_crossref, frase_pulita, max_per_fonte): 'Crossref',
+            executor.submit(_cerca_gutenberg, frase_pulita, max_per_fonte): 'Project Gutenberg',
             executor.submit(_cerca_google_books, frase_pulita, max_per_fonte): 'Google Books',
             executor.submit(_cerca_open_library, frase_pulita, max_per_fonte): 'Open Library',
             executor.submit(_cerca_internet_archive, frase_pulita, max_per_fonte): 'Internet Archive',
