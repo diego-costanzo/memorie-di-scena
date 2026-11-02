@@ -36,11 +36,17 @@ A chi non è mai capitato di prestare un libro prezioso o un copione a un amico 
 ### 📝 3. Il Taccuino dei Ricordi per ogni opera
 Ogni scheda ha una sezione dedicata alle memorie personali: puoi annotare una dedica trovata sul frontespizio, una citazione che ti ha colpito, ricordi delle prove teatrali, battute amate o pensieri legati a quella lettura.
 
-### 🔎 4. Ricercare un libro da una frase che ricordi a memoria
-Ti è mai capitato di ricordare mezza battuta o una frase memorabile senza riuscire a ricordare il titolo del libro?
-- Inserisci le poche parole che ricordi (es. *«nel mezzo del cammin»* oppure *«chi è di scena»*).
-- L'archivio controlla prima di tutto tra i **tuoi volumi e i tuoi appunti** di casa.
-- Se non lo trova a casa, cerca in parallelo nelle più grandi biblioteche digitali aperte: **Wikiquote** (specializzato in battute e citazioni teatrali), **Wikipedia** letteraria, **Google Books** e **Open Library**.
+### 🔎 4. Ricercare un'opera da una frase, una battuta o un titolo
+Ti è mai capitato di ricordare mezza battuta, una frase memorabile o un motivo senza riuscire a ricordare il titolo esatto?
+- Inserisci le parole che ricordi (es. *«nel mezzo del cammin»*, *«mirandolina cavaliere»*, *«chi è di scena»* o un artista/brano).
+- L'archivio controlla prima di tutto tra i **tuoi volumi, dischi e ricordi personali** di casa.
+- Se non lo trova a casa, cerca in parallelo in **8 grandi archivi digitali aperti e gratuiti**:
+  - 🏛️ **OPAC SBN (Servizio Bibliotecario Nazionale):** Il catalogo ufficiale delle biblioteche pubbliche e statali italiane, con schede storiche, editori e codici BID.
+  - 📜 **Wikisource:** La biblioteca libera con testi integrali di commedie, tragedie e copioni teatrali italiani (Goldoni, Pirandello, Alfieri, ecc.) con atti e scene.
+  - 🎵 **MusicBrainz:** L'enciclopedia aperta mondiale per dischi in vinile (LP, 45 giri), CD, album e tracce musicali.
+  - 🎭 **Wikiquote:** La raccolta libera di citazioni, battute celebri e monologhi teatrali.
+  - 📖 **Wikipedia:** Voci enciclopediche, schede d'opera e trame letterarie.
+  - 📚 **Google Books, Open Library e Internet Archive:** Milioni di testi mondiali e scansioni storiche di pubblico dominio.
 
 ### 📸 5. Acquisizione rapida da foto (OCR)
 Per chi fatica a digitare lunghi testi sulla tastiera:

@@ -73,9 +73,8 @@ else:
     Image.MAX_IMAGE_PIXELS = 150_000_000
     MAX_IMAGE_DIM = 2400
 
-# Pool di thread per chiamate API parallele (leggero anche su 32-bit)
-# Su 32-bit limita i thread per ridurre il consumo di memoria
-_MAX_WORKERS = 2 if IS_32_BIT else 4
+# Pool di thread per chiamate API parallele (I/O bound, leggero anche su 32-bit)
+_MAX_WORKERS = 4 if IS_32_BIT else 8
 
 # Migrazione di sicurezza: se archivio.db risiede nella root, spostalo in data/archivio.db
 ROOT_OLD_DB = os.path.join(BASE_DIR, "archivio.db")
@@ -353,7 +352,7 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
 # Sessione HTTP condivisa per pooling connessioni (riduce drasticamente carico CPU a 32-bit)
 _api_session = requests.Session()
 _api_session.headers.update({
-    'User-Agent': 'MemorieDiScena/2.0 (Archivio Teatrale e Collezione; Debian GNU/Linux)',
+    'User-Agent': 'MemorieDiScena/2.3 (Debian GNU/Linux; Archivio Teatrale; https://github.com; info@memoriediscena.local)',
     'Accept': 'application/json',
 })
 
@@ -693,11 +692,174 @@ def _cerca_internet_archive(frase, max_risultati=5):
     return risultati
 
 
+def _cerca_opac_sbn(frase, max_risultati=4):
+    """
+    Cerca nel Catalogo Ufficiale del Servizio Bibliotecario Nazionale (ICCU / OPAC SBN).
+    Contiene milioni di schede bibliografiche delle biblioteche italiane, edizioni storiche,
+    tirature teatrali e spartiti con codice BID e permalink istituzionale.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        url = "https://opac.sbn.it/o/opac-api/titles-search-post"
+        pulita = frase.strip()
+        headers = {'X-Requested-With': 'XMLHttpRequest'}
+
+        # 1. Tentativo con keywords (ricerca generale multi-campo)
+        payload = {'keywords': pulita, 'rows': max_risultati}
+        resp = _api_session.post(url, data=payload, headers=headers, timeout=_API_TIMEOUT)
+        raw_items = []
+        if resp.status_code == 200:
+            raw_items = resp.json().get('data', {}).get('results', [])
+
+        # 2. Fallback su titolo se 0 risultati (es. titolo commedia o battuta specifica)
+        if not raw_items:
+            parole = pulita.split()
+            query_titolo = " ".join(parole[:5]) if len(parole) > 5 else pulita
+            payload2 = {'titolo': query_titolo, 'rows': max_risultati}
+            resp2 = _api_session.post(url, data=payload2, headers=headers, timeout=_API_TIMEOUT)
+            if resp2.status_code == 200:
+                raw_items = resp2.json().get('data', {}).get('results', [])
+
+        for item in raw_items[:max_risultati]:
+            bid = item.get('bid', '')
+            t_obj = item.get('title', {})
+            titolo = t_obj.get('info') or t_obj.get('text') or 'Titolo non indicato'
+            autore = t_obj.get('text') if t_obj.get('info') else 'Autore non indicato'
+            infos = item.get('infos', [])
+            editore_anno = infos[0] if infos else 'Servizio Bibliotecario Nazionale'
+
+            m_anno = re.search(r'\b(1[5-9]\d{2}|20\d{2})\b', editore_anno)
+            anno = m_anno.group(1) if m_anno else ''
+
+            link = f"https://opac.sbn.it/bid/{bid}" if bid else "https://opac.sbn.it"
+            risultati.append({
+                'titolo': titolo,
+                'autore': autore,
+                'editore': f"SBN Biblioteche: {editore_anno}",
+                'anno': anno,
+                'snippet': f"Scheda ufficiale del Servizio Bibliotecario Nazionale (SBN). Codice BID: {bid}. Edizione: {editore_anno}",
+                'copertina_url': '',
+                'lingua': 'it',
+                'pagine': '',
+                'link_info': link,
+                'anteprima_link': '',
+                'fonte': 'OPAC SBN (Biblioteche Italiane)',
+                'fonte_icona': '🏛️',
+            })
+    except Exception as e:
+        print(f"[OPAC SBN] Errore: {e}")
+    return risultati
+
+
+def _cerca_wikisource(frase, max_risultati=4):
+    """
+    Cerca su Wikisource Italia (la biblioteca libera di testi e copioni integrali).
+    Fondamentale per il teatro: contiene testi completi di commedie, tragedie e monologhi
+    (Goldoni, Pirandello, Alfieri, Dante, Manzoni, ecc.) con atti e scene evidenziati.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://it.wikisource.org/w/api.php?action=query&list=search&srsearch={q}&format=json"
+        resp = _api_session.get(url, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            for item in resp.json().get('query', {}).get('search', [])[:max_risultati]:
+                titolo = item.get('title', '')
+                snippet = _pulisci_snippet(item.get('snippet', ''))
+                link = f"https://it.wikisource.org/wiki/{urllib.parse.quote(titolo.replace(' ', '_'))}"
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': 'Testo Integrale / Copione Teatrale',
+                    'editore': 'Wikisource (Biblioteca Libera)',
+                    'anno': '',
+                    'snippet': snippet,
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'Wikisource Copioni & Testi',
+                    'fonte_icona': '📜',
+                })
+    except Exception as e:
+        print(f"[Wikisource] Errore: {e}")
+    return risultati
+
+
+def _cerca_musicbrainz(frase, max_risultati=4):
+    """
+    Cerca su MusicBrainz (l'enciclopedia musicale libera e aperta mondiale).
+    Permette di cercare dischi, vinili (LP 33 giri, singoli 45 giri), CD, colonne sonore e libretti d'opera.
+    """
+    risultati = []
+    if not frase or len(frase.strip()) < 3:
+        return risultati
+
+    try:
+        q = urllib.parse.quote_plus(frase.strip())
+        url = f"https://musicbrainz.org/ws/2/release?query={q}&fmt=json&limit={max_risultati}"
+        # MusicBrainz richiede esplicitamente User-Agent con info contatto
+        headers = {'User-Agent': 'MemorieDiScenaApp/2.3 (https://github.com/progetto; info@memoriediscena.local)'}
+        resp = _api_session.get(url, headers=headers, timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            for rel in resp.json().get('releases', [])[:max_risultati]:
+                titolo = rel.get('title', 'Senza titolo')
+                artist_list = [a.get('name', '') for a in rel.get('artist-credit', []) if isinstance(a, dict) and 'name' in a]
+                artista = ', '.join(artist_list) or 'Artista non indicato'
+                anno = (rel.get('date') or '')[:4]
+                mbid = rel.get('id', '')
+                media = rel.get('media', [])
+                formato = media[0].get('format', 'Disco / Vinile') if media else 'Disco'
+
+                label_info = rel.get('label-info-list', [])
+                etichetta = ''
+                if label_info and isinstance(label_info, list):
+                    label_obj = label_info[0].get('label')
+                    if label_obj and isinstance(label_obj, dict):
+                        etichetta = label_obj.get('name', '')
+
+                info_editore = f"{formato} • {etichetta}" if etichetta else formato
+                copertina = f"https://coverartarchive.org/release/{mbid}/front-250" if mbid else ''
+                link = f"https://musicbrainz.org/release/{mbid}" if mbid else ''
+
+                risultati.append({
+                    'titolo': titolo,
+                    'autore': artista,
+                    'editore': info_editore,
+                    'anno': anno,
+                    'snippet': f"Disco musicale ({formato}). Anno: {anno or 'non indicato'}. Interprete/Autore: {artista}.",
+                    'copertina_url': copertina,
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': link,
+                    'anteprima_link': '',
+                    'fonte': 'MusicBrainz (Dischi & Vinili)',
+                    'fonte_icona': '🎵',
+                })
+    except Exception as e:
+        print(f"[MusicBrainz] Errore: {e}")
+    return risultati
+
+
 def ricerca_per_citazione(frase, max_per_fonte=4):
     """
     Orchestratore principale:
     1. Cerca immediatamente nella libreria e nel taccuino locale!
-    2. Interroga in parallelo Wikiquote, Wikipedia, Google Books, Open Library e Internet Archive.
+    2. Interroga in parallelo 8 fonti esterne:
+       - Wikiquote (citazioni e battute)
+       - Wikipedia (opere e voci enciclopediche)
+       - Wikisource (copioni e testi integrali)
+       - OPAC SBN (Catalogo Ufficiale Biblioteche Italiane)
+       - MusicBrainz (dischi, vinili e musica)
+       - Google Books (full-text e libri digitalizzati)
+       - Open Library (catalogo bibliografico mondiale)
+       - Internet Archive (scansioni e testi storici)
     3. Raggruppa e ordina per rilevanza, evidenziando le corrispondenze con frammenti di testo.
     4. Salva in cache su disco per 24h.
     """
@@ -724,6 +886,9 @@ def ricerca_per_citazione(frase, max_per_fonte=4):
         futures = {
             executor.submit(_cerca_wikiquote, frase_pulita, max_per_fonte): 'Wikiquote',
             executor.submit(_cerca_wikipedia, frase_pulita, max_per_fonte): 'Wikipedia',
+            executor.submit(_cerca_wikisource, frase_pulita, max_per_fonte): 'Wikisource',
+            executor.submit(_cerca_opac_sbn, frase_pulita, max_per_fonte): 'OPAC SBN',
+            executor.submit(_cerca_musicbrainz, frase_pulita, max_per_fonte): 'MusicBrainz',
             executor.submit(_cerca_google_books, frase_pulita, max_per_fonte): 'Google Books',
             executor.submit(_cerca_open_library, frase_pulita, max_per_fonte): 'Open Library',
             executor.submit(_cerca_internet_archive, frase_pulita, max_per_fonte): 'Internet Archive',

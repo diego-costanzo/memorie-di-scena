@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.3">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.4">
 </head>
 <body>
 
@@ -771,7 +771,7 @@
   <div class="modal-overlay" id="modalRicercaCitazione">
     <div class="modal-window" style="max-width: 900px;">
       <header class="modal-header" style="background: linear-gradient(145deg, #1a3a2a 0%, #0d1f16 100%);">
-        <h2 class="modal-title">🔎📖 Cerca un Libro per Frase o Citazione</h2>
+        <h2 class="modal-title">🔎🎭 Cerca per Frase, Copione, Libro o Disco</h2>
         <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
       </header>
 
@@ -780,33 +780,32 @@
         <!-- Spiegazione chiara ed espandibile per la ricerca per citazione -->
         <details class="citazione-spiegazione">
           <summary style="cursor: pointer; font-size: 19px; font-weight: bold; color: #1a3a2a; outline: none; padding: 4px 0;">
-            🎭 Come funziona questa ricerca? (Consigli utili per trovare i libri)
+            🎭 Come funziona questa ricerca? (Consigli utili per trovare libri, copioni e dischi)
           </summary>
           <p style="margin-top: 14px;">
-            Scrivi una <strong>frase che ricordi</strong> da un libro, un copione o un testo e l'archivio cercherà 
-            in <strong>tre grandi biblioteche digitali mondiali</strong> (Google Books, Open Library e Internet Archive)
-            per trovare il libro o i libri che la contengono.
+            Scrivi una <strong>frase che ricordi</strong>, una battuta, un autore o un titolo e l'applicazione cercherà 
+            in parallelo nella tua <strong>libreria personale</strong>, nel <strong>Catalogo Ufficiale delle Biblioteche Italiane (OPAC SBN)</strong>, 
+            nei copioni teatrali integrali di <strong>Wikisource</strong>, nei dischi e vinili di <strong>MusicBrainz</strong> 
+            e nelle grandi biblioteche digitali mondiali (Google Books, Open Library, Internet Archive, Wikiquote e Wikipedia).
           </p>
           <div class="citazione-consigli">
             <div class="consiglio-item">
               <span class="consiglio-icona">✅</span>
               <div>
-                <strong>Funziona bene se:</strong> ricordi almeno <strong>3-4 parole consecutive</strong> 
-                esattamente come erano scritte nel libro.
+                <strong>Per libri e citazioni:</strong> scrivi almeno <strong>3-4 parole consecutive</strong> 
+                esattamente come erano scritte o le parole chiave principali.
               </div>
             </div>
             <div class="consiglio-item">
-              <span class="consiglio-icona">💡</span>
+              <span class="consiglio-icona">🎭</span>
               <div>
-                <strong>Consiglio da attore:</strong> Prova a ricordare le parole più <em>rare</em> o <em>distintive</em> 
-                della frase. Parole comuni come "il", "che", "era" da sole non aiutano.
+                <strong>Per copioni e teatro:</strong> scrivi una battuta celebre o il nome di un personaggio (es. <em>Mirandolina</em>, <em>Amleto</em>).
               </div>
             </div>
             <div class="consiglio-item">
-              <span class="consiglio-icona">⚠️</span>
+              <span class="consiglio-icona">🎵</span>
               <div>
-                <strong>Attenzione alle traduzioni:</strong> Se il libro è una traduzione (es. Shakespeare, Dostoevskij), 
-                edizioni diverse usano parole diverse. Cerca preferibilmente nella lingua originale o prova parole chiave.
+                <strong>Per musica e vinili:</strong> scrivi il titolo dell'album, della canzone o dell'artista (es. <em>Fabrizio De André</em>).
               </div>
             </div>
           </div>
@@ -815,7 +814,7 @@
         <!-- Campo di ricerca -->
         <div class="citazione-ricerca-box">
           <label for="campo_citazione" class="form-label" style="font-size: 22px;">
-            ✍️ Scrivi la frase o le parole che ricordi:
+            ✍️ Scrivi la frase, la battuta o le parole che ricordi:
           </label>
           <textarea id="campo_citazione" class="form-control citazione-textarea" 
                     placeholder="Es: «In mezzo al cammin di nostra vita mi ritrovai per una selva oscura» oppure «Essere o non essere questo è il dilemma»..."
@@ -832,13 +831,17 @@
               Manzoni - Promessi Sposi
             </button>
             <button type="button" class="chip-btn citazione-chip" 
-                    onclick="document.getElementById('campo_citazione').value='chi è di scena'; eseguiRicercaCitazione();">
-              Chi è di scena?
+                    onclick="document.getElementById('campo_citazione').value='mirandolina cavaliere'; eseguiRicercaCitazione();">
+              Goldoni - Locandiera
+            </button>
+            <button type="button" class="chip-btn citazione-chip" 
+                    onclick="document.getElementById('campo_citazione').value='creuza de ma'; eseguiRicercaCitazione();">
+              De André - Vinili & Dischi
             </button>
           </div>
 
           <button type="button" class="btn-cerca-citazione" onclick="eseguiRicercaCitazione()">
-            🔎 CERCA NEI DATABASE MONDIALI
+            🔎 CERCA NEI DATABASE MONDIALI E ITALIANI
           </button>
         </div>
 
@@ -846,9 +849,9 @@
         <div id="citazioneLoading" class="citazione-loading" style="display: none;">
           <div class="citazione-loading-spinner"></div>
           <div>
-            <strong>Ricerca in corso nelle biblioteche digitali mondiali...</strong><br>
+            <strong>Ricerca in corso nelle biblioteche italiane e internazionali...</strong><br>
             <span style="font-size: 16px; color: #6d4a2b;">
-              Sto interrogando Google Books, Open Library e Internet Archive.<br>
+              Interrogo Biblioteche Italiane (SBN), Wikisource, MusicBrainz, Google Books, Open Library e Internet Archive.<br>
               Potrebbe impiegare qualche secondo — sii paziente! 🎭
             </span>
           </div>
@@ -916,6 +919,6 @@
 
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.3"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.4"></script>
 </body>
 </html>
