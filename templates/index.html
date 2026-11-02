@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.4">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.5">
 </head>
 <body>
 
@@ -867,6 +867,28 @@
           <div id="citazioneRisultatiLista" class="citazione-risultati-grid">
             <!-- Riempito dinamicamente da JavaScript -->
           </div>
+
+          <!-- Approfondimenti su portali con accesso dedicato (Internet Culturale, Europeana, WorldCat) -->
+          <div id="citazioneAltriArchivi" class="citazione-altri-archivi" style="display: none;">
+            <div class="citazione-altri-archivi-header">
+              <span style="font-size: 20px;">🔍</span>
+              <strong>Vuoi approfondire su altri grandi archivi storici e mondiali?</strong>
+            </div>
+            <p class="citazione-altri-archivi-desc">
+              Consulta con un clic i portali storici con la tua ricerca già inserita:
+            </p>
+            <div class="citazione-altri-archivi-chips">
+              <a id="linkInternetCulturale" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🏛️ Internet Culturale (Fondi e Manoscritti ICCU) ↗
+              </a>
+              <a id="linkEuropeana" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🇪🇺 Europeana (Beni Culturali Europei) ↗
+              </a>
+              <a id="linkWorldCat" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🌍 WorldCat (Catalogo Mondiale Biblioteche) ↗
+              </a>
+            </div>
+          </div>
         </div>
 
         <!-- Suggerimento se nessun risultato -->
@@ -880,6 +902,21 @@
             <li>Solo il cognome dell'autore se lo ricordi</li>
             <li>Parole nella lingua originale del libro</li>
           </ul>
+
+          <div class="citazione-altri-archivi" style="margin-top: 24px; text-align: left;">
+            <p style="font-weight: bold; margin-bottom: 8px;">Puoi anche provare a consultare direttamente:</p>
+            <div class="citazione-altri-archivi-chips">
+              <a id="linkNessunoIC" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🏛️ Internet Culturale ↗
+              </a>
+              <a id="linkNessunoEur" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🇪🇺 Europeana ↗
+              </a>
+              <a id="linkNessunoWC" href="#" target="_blank" rel="noopener noreferrer" class="chip-archivio-link">
+                🌍 WorldCat ↗
+              </a>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -920,6 +957,6 @@
 
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.4"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.5"></script>
 </body>
 </html>

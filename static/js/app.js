@@ -699,6 +699,18 @@ function eseguiRicercaCitazione() {
           
           lista.appendChild(card);
         });
+
+        // Aggiorna i link di approfondimento per portali con accesso dedicato
+        const qEnc = encodeURIComponent(frase.trim());
+        const linkIC = document.getElementById('linkInternetCulturale');
+        const linkEur = document.getElementById('linkEuropeana');
+        const linkWC = document.getElementById('linkWorldCat');
+        if (linkIC) linkIC.href = `https://www.internetculturale.it/it/16/search?q=${qEnc}`;
+        if (linkEur) linkEur.href = `https://www.europeana.eu/it/search?query=${qEnc}`;
+        if (linkWC) linkWC.href = `https://www.worldcat.org/search?q=${qEnc}`;
+
+        const altriDiv = document.getElementById('citazioneAltriArchivi');
+        if (altriDiv) altriDiv.style.display = 'block';
       }
       
       if (risultatiDiv) {
@@ -709,6 +721,14 @@ function eseguiRicercaCitazione() {
       }
     } else {
       // Nessun risultato
+      const qEnc = encodeURIComponent(frase.trim());
+      const nIC = document.getElementById('linkNessunoIC');
+      const nEur = document.getElementById('linkNessunoEur');
+      const nWC = document.getElementById('linkNessunoWC');
+      if (nIC) nIC.href = `https://www.internetculturale.it/it/16/search?q=${qEnc}`;
+      if (nEur) nEur.href = `https://www.europeana.eu/it/search?query=${qEnc}`;
+      if (nWC) nWC.href = `https://www.worldcat.org/search?q=${qEnc}`;
+
       if (nessuno) nessuno.style.display = 'block';
     }
   })

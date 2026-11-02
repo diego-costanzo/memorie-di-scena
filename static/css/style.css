@@ -1923,3 +1923,56 @@ textarea.form-control {
   background: linear-gradient(180deg, #9e5927 0%, #703b17 100%);
   color: #ffffff;
 }
+
+/* Sezione approfondimenti portali storici e dedicati */
+.citazione-altri-archivi {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: #f7faf8;
+  border: 2px dashed #b2d6be;
+  border-radius: 10px;
+}
+
+.citazione-altri-archivi-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  color: #1a3a2a;
+  margin-bottom: 6px;
+}
+
+.citazione-altri-archivi-desc {
+  font-size: 15px;
+  color: #556b5e;
+  margin: 0 0 12px 0;
+}
+
+.citazione-altri-archivi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip-archivio-link {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  color: #1a3a2a;
+  border: 1.5px solid #a8ceb6;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 5px rgba(26, 58, 42, 0.06);
+}
+
+.chip-archivio-link:hover {
+  background: #1a3a2a;
+  color: #ffffff;
+  border-color: #1a3a2a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(26, 58, 42, 0.15);
+}
