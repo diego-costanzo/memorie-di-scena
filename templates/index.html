@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.7">
 </head>
 <body>
 
@@ -115,37 +115,61 @@
     {% endif %}
 
     <!-- ====================================================================
-         BARRA DELLE AZIONI E RICERCA RAPIDA ISTANTANEA
+         NAVIGAZIONE PRIMARIA A REGISTRI: SCAFFALE DELLE OPERE & DIARIO CULTURALE
          ==================================================================== -->
-    <section class="toolbar-section">
-      <div class="toolbar-row-top">
-        <!-- Pulsante gigante 1: Nuovo Elemento -->
-        <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()" title="Aggiungi manualmente un libro, copione o disco">
-          <span class="btn-icon">📖➕</span>
-          <div class="btn-testo-box">
-            <span class="btn-titolo-principale">Aggiungi Volume</span>
-            <span class="btn-sottotitolo">Libro, Copione o Disco</span>
-          </div>
-        </button>
+    <nav class="registri-nav" role="tablist" aria-label="Registri Principali">
+      <button type="button" class="btn-registro active" id="tabRegistroScaffale" role="tab" aria-selected="true" onclick="mostraRegistro('scaffale')">
+        <span class="reg-icon">📚</span>
+        <div class="reg-testo">
+          <span class="reg-titolo">Scaffale delle Opere</span>
+          <span class="reg-sotto">I tuoi libri, copioni e vinili custoditi a casa</span>
+        </div>
+      </button>
 
-        <!-- Pulsante gigante 2: Acquisizione Rapida da Foto (OCR) -->
-        <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande" title="Riconoscimento automatico da fotocamera o immagine">
-          <span class="btn-icon">📸</span>
-          <div class="btn-testo-box">
-            <span class="btn-titolo-principale">Acquisisci da Foto</span>
-            <span class="btn-sottotitolo">Lettura Copertina (OCR)</span>
-          </div>
-        </a>
+      <button type="button" class="btn-registro" id="tabRegistroDiario" role="tab" aria-selected="false" onclick="mostraRegistro('diario')">
+        <span class="reg-icon">📜</span>
+        <div class="reg-testo">
+          <span class="reg-titolo">Diario dei Pensieri &amp; Memorie</span>
+          <span class="reg-sotto">Taccuino su pergamena per frasi e riflessioni del giorno</span>
+        </div>
+        <span class="badge-diario-conteggio" id="badgeConteggioDiario">0</span>
+      </button>
+    </nav>
 
-        <!-- Pulsante gigante 3: Cerca per Citazione / Frase -->
-        <button type="button" class="btn-citazione-grande" onclick="apriModalRicercaCitazione()" title="Cerca libri ricordando una frase o citazione">
-          <span class="btn-icon">🔎📖</span>
-          <div class="btn-testo-box">
-            <span class="btn-titolo-principale">Cerca per Frase</span>
-            <span class="btn-sottotitolo">Trova libro da citazione</span>
-          </div>
-        </button>
-      </div>
+    <!-- ====================================================================
+         REGISTRO 1: SCAFFALE DELLE OPERE (LIBRI, COPIONI, DISCHI)
+         ==================================================================== -->
+    <div id="sezioneScaffale" class="sezione-scaffale">
+      <!-- Barra delle azioni e ricerca rapida istantanea -->
+      <section class="toolbar-section">
+        <div class="toolbar-row-top">
+          <!-- Pulsante gigante 1: Nuovo Elemento -->
+          <button type="button" class="btn-aggiungi-grande" onclick="apriModalNuovo()" title="Aggiungi manualmente un libro, copione o disco">
+            <span class="btn-icon">📖➕</span>
+            <div class="btn-testo-box">
+              <span class="btn-titolo-principale">Aggiungi Volume</span>
+              <span class="btn-sottotitolo">Libro, Copione o Disco</span>
+            </div>
+          </button>
+
+          <!-- Pulsante gigante 2: Acquisizione Rapida da Foto (OCR) -->
+          <a href="{{ url_for('acquisizione_ocr') }}" class="btn-ocr-grande" title="Riconoscimento automatico da fotocamera o immagine">
+            <span class="btn-icon">📸</span>
+            <div class="btn-testo-box">
+              <span class="btn-titolo-principale">Acquisisci da Foto</span>
+              <span class="btn-sottotitolo">Lettura Copertina (OCR)</span>
+            </div>
+          </a>
+
+          <!-- Pulsante gigante 3: Bussola Culturale -->
+          <button type="button" class="btn-citazione-grande" onclick="apriModalRicercaCitazione()" title="Trova un'opera ricordando una frase, una battuta o un ricordo">
+            <span class="btn-icon">🧭✨</span>
+            <div class="btn-testo-box">
+              <span class="btn-titolo-principale">Bussola Culturale</span>
+              <span class="btn-sottotitolo">Trova per frase, opera o memoria</span>
+            </div>
+          </button>
+        </div>
 
       <!-- Ricerca istantanea -->
       <div class="search-container">
@@ -357,6 +381,90 @@
         </div>
       </div>
     </main>
+    </div><!-- /#sezioneScaffale -->
+
+    <!-- ====================================================================
+         REGISTRO 2: DIARIO DEI PENSIERI & MEMORIE (TACCUINO SU PERGAMENA)
+         ==================================================================== -->
+    <div id="sezioneDiario" class="sezione-diario" style="display: none;">
+      
+      <!-- Banner Introduttivo Diario -->
+      <section class="diario-hero-banner">
+        <div class="diario-hero-content">
+          <span class="diario-hero-icon">📜</span>
+          <div class="diario-hero-testi">
+            <h2 class="diario-hero-titolo">Il Tuo Diario Culturale &amp; Memorie</h2>
+            <p class="diario-hero-desc">
+              Fogli di pergamena dove annotare pensieri del giorno, battute amate, citazioni di vita e ricordi di scena.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Barra Azioni del Diario -->
+      <section class="diario-toolbar-section">
+        <div class="diario-toolbar-row">
+          <!-- Pulsante gigante Nuovo Pensiero -->
+          <button type="button" class="btn-nuovo-pensiero-grande" onclick="apriModalNuovoPensiero()">
+            <span class="btn-icon">✍️➕</span>
+            <div class="btn-testo-box">
+              <span class="btn-titolo-principale">Scrivi un Nuovo Pensiero</span>
+              <span class="btn-sottotitolo">Crea un nuovo foglio sul diario</span>
+            </div>
+          </button>
+
+          <!-- Tasto Cestino dei 30 giorni -->
+          <button type="button" class="btn-cestino-grande" onclick="apriModalCestinoDiario()" title="Visualizza gli appunti cestinati (custoditi per 30 giorni)">
+            <span class="btn-icon">🗑️</span>
+            <div class="btn-testo-box">
+              <span class="btn-titolo-principale">Cestino dei Ricordi</span>
+              <span class="btn-sottotitolo" id="txtSottotitoloCestino">Custoditi per 30 giorni (<span id="txtConteggioCestino">0</span>)</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Barra di ricerca rapida nel diario -->
+        <div class="diario-search-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="campoRicercaDiario" class="search-input" 
+                 placeholder="Cerca parole, frasi o autori tra le tue pergamene (es. libertà, Goldoni, prova teatro, ricordo)..." 
+                 oninput="filtraPensieriDiario(this.value)">
+          <button type="button" class="btn-pulisci-ricerca" id="btnCancellaDiario" onclick="cancellaRicercaDiario()" style="display: none;">
+            ✖ Cancella
+          </button>
+        </div>
+      </section>
+
+      <!-- Griglia dei Fogli di Pergamena -->
+      <section class="diario-pergamene-section">
+        <div id="grigliaPensieri" class="diario-pergamene-grid">
+          <!-- Riempito dinamicamente da app.js -->
+        </div>
+
+        <!-- Stato Vuoto (se non ci sono ancora pensieri) -->
+        <div id="diarioVuotoBox" class="diario-vuoto-box" style="display: none;">
+          <div class="diario-vuoto-icon">🪶✨</div>
+          <h3 class="diario-vuoto-titolo">Il tuo Diario è pronto per la prima pagina</h3>
+          <p class="diario-vuoto-desc">
+            Non hai ancora annotato riflessioni o citazioni. Scrivi un pensiero del giorno, una battuta o un ricordo amato.
+          </p>
+          <button type="button" class="btn-nuovo-pensiero-grande" onclick="apriModalNuovoPensiero()">
+            <span class="btn-icon">✍️</span>
+            <span>Inizia a Scrivere il Primo Pensiero</span>
+          </button>
+        </div>
+
+        <!-- Nessun risultato trovato con la ricerca nel diario -->
+        <div id="diarioNessunFiltro" class="nessun-risultato" style="display: none;">
+          <div class="nessun-risultato-icon">🧐</div>
+          <h3>Nessun appunto trovato con questa parola</h3>
+          <p>Prova con un termine diverso o cancella il filtro per rivedere tutti i fogli.</p>
+          <button type="button" class="tab-btn active" onclick="cancellaRicercaDiario()">
+            Mostra tutti i fogli del Diario
+          </button>
+        </div>
+      </section>
+    </div><!-- /#sezioneDiario -->
 
     <!-- Footer -->
     <footer class="main-footer">
@@ -766,12 +874,15 @@
 
 
   <!-- ====================================================================
-       MODALE 6: RICERCA LIBRO PER FRASE / CITAZIONE (MULTI-DATABASE)
+       MODALE 6: LA BUSSOLA CULTURALE (RICERCA TRA 11 ARCHIVI MONDIALI E DIARIO)
        ==================================================================== -->
   <div class="modal-overlay" id="modalRicercaCitazione">
     <div class="modal-window" style="max-width: 900px;">
       <header class="modal-header" style="background: linear-gradient(145deg, #1a3a2a 0%, #0d1f16 100%);">
-        <h2 class="modal-title">🔎🎭 Cerca per Frase, Copione, Libro o Disco</h2>
+        <div>
+          <h2 class="modal-title">🧭✨ La Bussola Culturale</h2>
+          <div style="font-size: 15px; color: #d0edd8; margin-top: 4px;">Trova un'opera da una frase, una battuta teatrale o un ricordo</div>
+        </div>
         <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
       </header>
 
@@ -780,11 +891,11 @@
         <!-- Spiegazione chiara ed espandibile per la ricerca per citazione -->
         <details class="citazione-spiegazione">
           <summary style="cursor: pointer; font-size: 19px; font-weight: bold; color: #1a3a2a; outline: none; padding: 4px 0;">
-            🎭 Come funziona questa ricerca? (Consigli utili per trovare libri, copioni e dischi)
+            🧭 Come orientarsi con la Bussola Culturale? (Consigli utili)
           </summary>
           <p style="margin-top: 14px;">
-            Scrivi una <strong>frase che ricordi</strong>, una battuta, un autore o un titolo e l'applicazione cercherà 
-            in parallelo nella tua <strong>libreria personale</strong>, nel <strong>Catalogo Ufficiale delle Biblioteche Italiane (OPAC SBN)</strong>, 
+            Scrivi una <strong>frase che ricordi</strong>, una battuta, un autore, un titolo o un artista. La Bussola cercherà
+            in parallelo nella tua <strong>libreria di casa</strong>, nel tuo <strong>Diario dei Pensieri</strong>, nel <strong>Catalogo Ufficiale delle Biblioteche Italiane (OPAC SBN)</strong>, 
             nei copioni teatrali di <strong>Wikisource</strong> e <strong>Liber Liber</strong> (Progetto Manuzio), 
             nei dischi e vinili di <strong>MusicBrainz</strong>, negli studi critici di <strong>Crossref</strong> 
             e nelle grandi biblioteche mondiali (Google Books, Open Library, Internet Archive, Wikiquote e Wikipedia).
@@ -793,7 +904,7 @@
             <div class="consiglio-item">
               <span class="consiglio-icona">✅</span>
               <div>
-                <strong>Per libri e citazioni:</strong> scrivi almeno <strong>3-4 parole consecutive</strong> 
+                <strong>Per libri e citazioni:</strong> scrivi almeno <strong>2-3 parole consecutive</strong> 
                 esattamente come erano scritte o le parole chiave principali.
               </div>
             </div>
@@ -815,10 +926,10 @@
         <!-- Campo di ricerca -->
         <div class="citazione-ricerca-box">
           <label for="campo_citazione" class="form-label" style="font-size: 22px;">
-            ✍️ Scrivi la frase, la battuta o le parole che ricordi:
+            ✍️ Scrivi la frase, la battuta, l'opera o il ricordo che hai in mente:
           </label>
           <textarea id="campo_citazione" class="form-control citazione-textarea" 
-                    placeholder="Es: «In mezzo al cammin di nostra vita mi ritrovai per una selva oscura» oppure «Essere o non essere questo è il dilemma»..."
+                    placeholder="Es: «Nel mezzo del cammin di nostra vita...», oppure «Mirandolina», «De André - Creuza de ma», «Essere o non essere»..."
                     rows="3"></textarea>
           
           <div class="citazione-esempi">
@@ -842,7 +953,7 @@
           </div>
 
           <button type="button" class="btn-cerca-citazione" onclick="eseguiRicercaCitazione()">
-            🔎 CERCA NEI DATABASE MONDIALI E ITALIANI
+            🧭 CERCA TRA LIBRI, TEATRO E MUSICA (11 ARCHIVI)
           </button>
         </div>
 
@@ -925,6 +1036,226 @@
 
 
   <!-- ====================================================================
+       MODALE 7: SCRIVI NUOVO PENSIERO SU PERGAMENA (DIARIO DEI PENSIERI)
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalNuovoPensiero">
+    <div class="modal-window" style="max-width: 760px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #442a17 0%, #2b1708 100%);">
+        <div>
+          <h2 class="modal-title">✍️📜 Nuovo Foglio nel Diario</h2>
+          <div style="font-size: 14px; color: #f2dec5; margin-top: 3px;">Custodisci una riflessione, citazione o pensiero del giorno</div>
+        </div>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <form id="formNuovoPensiero" onsubmit="salvaNuovoPensiero(event)" class="modal-body" style="background: #fdfbf7;">
+        <div class="form-group">
+          <label for="pensiero_titolo" class="form-label" style="font-size: 19px; color: #2e1909;">
+            🏷️ Titolo o Argomento del Pensiero <small style="font-size: 14px; color: #7a583a;">(Facoltativo)</small>
+          </label>
+          <input type="text" id="pensiero_titolo" class="form-control" placeholder="Es. Riflessione sulla libertà, Battuta amata, Prova a teatro...">
+        </div>
+
+        <div class="form-group">
+          <label for="pensiero_testo" class="form-label" style="font-size: 21px; color: #2e1909; font-weight: bold;">
+            ✍️ Cosa hai in mente? <span style="color: #a82020;">*</span>
+          </label>
+          <textarea id="pensiero_testo" class="form-control foglio-scrittura" rows="6" required 
+                    placeholder="Scrivi qui la tua riflessione, la frase del giorno o il testo da custodire..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="pensiero_fonte" class="form-label" style="font-size: 18px; color: #2e1909;">
+            📖 Riferimento a Libro, Opera o Artista <small style="font-size: 14px; color: #7a583a;">(Facoltativo)</small>
+          </label>
+          <input type="text" id="pensiero_fonte" class="form-control" placeholder="Es. Goldoni - La locandiera, oppure Fabrizio De André, oppure Pensiero libero">
+        </div>
+
+        <div class="modal-actions" style="margin-top: 24px;">
+          <button type="submit" class="btn-salva-grande" style="background: linear-gradient(180deg, #5b3518 0%, #3a1d08 100%); border-color: #271204;">
+            💾 CUSTODISCI SUL DIARIO
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Annulla
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODALE 8: MODIFICA PENSIERO NEL DIARIO
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalModificaPensiero">
+    <div class="modal-window" style="max-width: 760px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #442a17 0%, #2b1708 100%);">
+        <div>
+          <h2 class="modal-title">✏️📜 Modifica Foglio del Diario</h2>
+          <div style="font-size: 14px; color: #f2dec5; margin-top: 3px;">Le modifiche reali al testo saranno custodite nella cronologia</div>
+        </div>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <form id="formModificaPensiero" onsubmit="inviaModificaPensiero(event)" class="modal-body" style="background: #fdfbf7;">
+        <input type="hidden" id="modifica_pensiero_id">
+
+        <div class="form-group">
+          <label for="modifica_pensiero_titolo" class="form-label" style="font-size: 19px; color: #2e1909;">
+            🏷️ Titolo o Argomento
+          </label>
+          <input type="text" id="modifica_pensiero_titolo" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="modifica_pensiero_testo" class="form-label" style="font-size: 21px; color: #2e1909; font-weight: bold;">
+            ✍️ Testo del Pensiero
+          </label>
+          <textarea id="modifica_pensiero_testo" class="form-control foglio-scrittura" rows="6" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="modifica_pensiero_fonte" class="form-label" style="font-size: 18px; color: #2e1909;">
+            📖 Riferimento a Opera o Artista
+          </label>
+          <input type="text" id="modifica_pensiero_fonte" class="form-control">
+        </div>
+
+        <div class="modal-actions" style="margin-top: 24px;">
+          <button type="submit" class="btn-salva-grande" style="background: linear-gradient(180deg, #5b3518 0%, #3a1d08 100%); border-color: #271204;">
+            💾 SALVA MODIFICHE
+          </button>
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Annulla
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODALE 9: CRONOLOGIA DELLE REVISIONI STORICHE
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalCronologiaPensiero">
+    <div class="modal-window" style="max-width: 820px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #2b3a4a 0%, #15222e 100%);">
+        <div>
+          <h2 class="modal-title">⏳ Cronologia delle Revisioni</h2>
+          <div style="font-size: 14px; color: #d0e4f5; margin-top: 3px;">Storia fedele delle stesure e modifiche apportate nel tempo</div>
+        </div>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <div class="modal-body" style="background: #fbfbfd; padding: 24px;">
+        <p style="font-size: 17px; color: #3a4b5c; margin-bottom: 20px;">
+          Qui puoi rileggere come è nato questo pensiero e tutte le modifiche reali apportate nel tempo.
+        </p>
+
+        <div id="cronologiaContenitore" class="cronologia-timeline">
+          <!-- Riempito dinamicamente da app.js -->
+        </div>
+
+        <div class="modal-actions" style="margin-top: 24px; justify-content: flex-end;">
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Chiudi Cronologia
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODALE 10: CESTINA SICURO ANTI-TREMORE (PROTEZIONE A DOPPIO BLOCCO)
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalCestinaPensiero">
+    <div class="modal-window" style="max-width: 620px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #5a2618 0%, #36140c 100%);">
+        <h2 class="modal-title">🗑️ Spostare questo pensiero nel Cestino?</h2>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <div class="modal-body" style="padding: 28px;">
+        <!-- Avviso di sicurezza rassicurante -->
+        <div class="sicurezza-alert-box">
+          <div style="font-size: 32px;">🛡️</div>
+          <div>
+            <strong style="font-size: 18px; color: #1e4620;">Nessuna perdita possibile:</strong><br>
+            <span style="font-size: 16px; color: #2d5030;">
+              L'appunto <strong>non viene eliminato subito</strong>. Verrà custodito nel <strong>Cestino per 30 giorni</strong> e potrai ripristinarlo in qualsiasi momento con un solo clic.
+            </span>
+          </div>
+        </div>
+
+        <!-- Estratto dell'appunto che si sta spostando -->
+        <div class="anteprima-cestinamento-box">
+          <span style="font-size: 14px; color: #6e4a2a; font-weight: bold;">Foglio selezionato:</span>
+          <div id="testoCestinaAnteprima" style="font-size: 17px; font-style: italic; color: #3b2010; margin-top: 6px;">
+            «...»
+          </div>
+        </div>
+
+        <!-- Blocco di sicurezza anti-tremore / anti-doppio clic -->
+        <div class="anti-tremore-box">
+          <label class="anti-tremore-label" for="chkConfermaCestino">
+            <input type="checkbox" id="chkConfermaCestino" class="anti-tremore-checkbox" onchange="document.getElementById('btnConfermaCestina').disabled = !this.checked;">
+            <span style="font-size: 17px; font-weight: bold; color: #4a1e12;">
+              ☑️ Confermo di voler spostare questo appunto nel Cestino
+            </span>
+          </label>
+        </div>
+
+        <input type="hidden" id="idPensieroDaCestinare">
+
+        <div class="modal-actions" style="margin-top: 24px; justify-content: space-between;">
+          <button type="button" class="btn-annulla" style="font-size: 17px;" onclick="chiudiModali()">
+            Non fare nulla (Annulla)
+          </button>
+          <button type="button" id="btnConfermaCestina" disabled class="btn-elimina-sicuro" onclick="eseguiCestinaPensiero()">
+            🗑️ SÌ, SPOSTA NEL CESTINO
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODALE 11: CESTINO DEI RICORDI (RIPRISTINA ENTRO 30 GIORNI)
+       ==================================================================== -->
+  <div class="modal-overlay" id="modalCestinoDiario">
+    <div class="modal-window" style="max-width: 840px;">
+      <header class="modal-header" style="background: linear-gradient(145deg, #3d2a1d 0%, #20140b 100%);">
+        <div>
+          <h2 class="modal-title">🗑️ Cestino dei Ricordi (Custodia di 30 Giorni)</h2>
+          <div style="font-size: 14px; color: #ecdccb; margin-top: 3px;">Puoi ripristinare qualsiasi appunto con un solo tocco verde</div>
+        </div>
+        <button type="button" class="btn-chiudi-modal" onclick="chiudiModali()">&times;</button>
+      </header>
+
+      <div class="modal-body" style="background: #fdfcf9; padding: 24px;">
+        <div style="background: #eef6f0; border-left: 5px solid #2e7d32; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
+          <strong style="color: #1b5e20; font-size: 16px;">💡 Come funziona il Cestino:</strong>
+          <p style="margin: 4px 0 0 0; color: #2e6034; font-size: 15px;">
+            Gli appunti qui elencati vengono conservati per 30 giorni dalla data di cancellazione. Puoi ripristinare qualsiasi appunto premendo il pulsante verde <strong>«Ripristina»</strong>.
+          </p>
+        </div>
+
+        <div id="listaCestino" class="cestino-lista">
+          <!-- Riempito dinamicamente da app.js -->
+        </div>
+
+        <div class="modal-actions" style="margin-top: 24px; justify-content: space-between;">
+          <button type="button" class="btn-annulla" onclick="chiudiModali()">
+            Chiudi Cestino
+          </button>
+          <button type="button" class="btn-svuota-cestino" onclick="confermaSvuotaCestino()">
+            🧹 Svuota Definitivamente
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ====================================================================
        MODALE 5: CONFERMA RIPONI IL TACCUINO (CHIUSURA APPLICAZIONE)
        ==================================================================== -->
   <div class="modal-overlay" id="modalChiudiApp">
@@ -957,6 +1288,6 @@
 
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.6"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.7"></script>
 </body>
 </html>

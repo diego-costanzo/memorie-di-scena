@@ -1924,6 +1924,35 @@ textarea.form-control {
   color: #ffffff;
 }
 
+.citazione-link.in-diario {
+  background: linear-gradient(180deg, #5c3516 0%, #3a1e09 100%);
+  color: #fff8eb;
+  border: 2px solid #281404;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.citazione-link.in-diario:hover {
+  background: linear-gradient(180deg, #78451c 0%, #4a270d 100%);
+  color: #ffffff;
+}
+
+.citazione-risultato-card.in-diario {
+  border-left: 6px solid #8e5828;
+  background: #fbf7ef;
+}
+
+@keyframes evidenziaPulsante {
+  0% { box-shadow: 0 0 0 0 rgba(142, 88, 40, 0.7); }
+  50% { box-shadow: 0 0 0 14px rgba(142, 88, 40, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(142, 88, 40, 0); }
+}
+
+.evidenzia-pulsante {
+  animation: evidenziaPulsante 1.5s ease;
+  border-color: #8e5828 !important;
+}
+
 /* Sezione compatta approfondimenti su portali storici (singola riga elegante) */
 .citazione-altri-archivi {
   margin-top: 14px;
@@ -1974,4 +2003,647 @@ textarea.form-control {
   border-color: #1a3a2a;
   transform: translateY(-1px);
   box-shadow: 0 3px 6px rgba(26, 58, 42, 0.16);
+}
+
+
+/* ==============================================================================
+   NAVIGAZIONE PRIMARIA A REGISTRI: SCAFFALE OPERE & DIARIO CULTURALE
+   ============================================================================== */
+.registri-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 18px 0 20px 0;
+}
+
+.btn-registro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 22px;
+  border-radius: 12px;
+  border: 2px solid #d8caa7;
+  background: #fffdf9;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 8px rgba(45, 25, 10, 0.08);
+  position: relative;
+}
+
+.btn-registro:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(45, 25, 10, 0.14);
+  border-color: #8c5529;
+}
+
+.btn-registro .reg-icon {
+  font-size: 34px;
+  flex-shrink: 0;
+}
+
+.btn-registro .reg-testo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.btn-registro .reg-titolo {
+  font-size: 21px;
+  font-weight: 800;
+  color: #2b1708;
+  letter-spacing: -0.2px;
+}
+
+.btn-registro .reg-sotto {
+  font-size: 14px;
+  color: #6d4a2b;
+}
+
+/* Stato attivo del Registro */
+.btn-registro.active {
+  background: linear-gradient(145deg, #382110 0%, #201207 100%);
+  border-color: #d4af37;
+  box-shadow: 0 6px 18px rgba(32, 18, 7, 0.35);
+}
+
+.btn-registro.active .reg-titolo {
+  color: #fffaf0;
+}
+
+.btn-registro.active .reg-sotto {
+  color: #e2ccb4;
+}
+
+.badge-diario-conteggio {
+  background: #9e1a2c;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #ff9999;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+
+/* ==============================================================================
+   SEZIONE DIARIO DEI PENSIERI & MEMORIE (TACCUINO SU PERGAMENA)
+   ============================================================================== */
+.diario-hero-banner {
+  background: linear-gradient(145deg, #442a17 0%, #241407 100%);
+  border-radius: 14px;
+  padding: 22px 28px;
+  margin-bottom: 22px;
+  border: 2px solid #b8860b;
+  box-shadow: 0 6px 18px rgba(36, 20, 7, 0.25);
+  color: #fffaf0;
+}
+
+.diario-hero-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.diario-hero-icon {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+
+.diario-hero-titolo {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  color: #fff9ed;
+}
+
+.diario-hero-desc {
+  font-size: 17px;
+  color: #ecdccb;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Toolbar del Diario */
+.diario-toolbar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.diario-toolbar-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.btn-nuovo-pensiero-grande {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  min-height: 76px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #5b3518 0%, #3a1d08 100%);
+  color: #ffffff;
+  border: 2px solid #271204;
+  box-shadow: 0 4px 12px rgba(40, 20, 5, 0.3);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-nuovo-pensiero-grande:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, #70421e 0%, #4a270d 100%);
+  box-shadow: 0 6px 16px rgba(40, 20, 5, 0.4);
+}
+
+.btn-nuovo-pensiero-grande .btn-icon {
+  font-size: 32px;
+}
+
+.btn-nuovo-pensiero-grande .btn-titolo-principale {
+  font-size: 20px;
+  font-weight: 800;
+  color: #fffaf0;
+  display: block;
+}
+
+.btn-nuovo-pensiero-grande .btn-sottotitolo {
+  font-size: 14px;
+  color: #dcc1a9;
+  display: block;
+}
+
+/* Tasto Cestino 30 giorni */
+.btn-cestino-grande {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 76px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #fbf5ea;
+  color: #4a2810;
+  border: 2px solid #c9b48f;
+  box-shadow: 0 3px 8px rgba(45, 25, 10, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cestino-grande:hover {
+  transform: translateY(-2px);
+  background: #f3ebd9;
+  border-color: #8c5529;
+  box-shadow: 0 5px 12px rgba(45, 25, 10, 0.15);
+}
+
+.btn-cestino-grande .btn-icon {
+  font-size: 30px;
+}
+
+.btn-cestino-grande .btn-titolo-principale {
+  font-size: 18px;
+  font-weight: 800;
+  color: #3b1d09;
+  display: block;
+}
+
+.btn-cestino-grande .btn-sottotitolo {
+  font-size: 13.5px;
+  color: #7a5030;
+  display: block;
+}
+
+/* Ricerca nel diario */
+.diario-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.diario-search-wrapper .search-icon {
+  position: absolute;
+  left: 18px;
+  font-size: 20px;
+  color: #7a5030;
+  pointer-events: none;
+}
+
+.diario-search-wrapper .search-input {
+  width: 100%;
+  padding: 14px 44px 14px 50px;
+  font-size: 18px;
+  border: 2px solid #cfbe9a;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2b1708;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.diario-search-wrapper .search-input:focus {
+  border-color: #8c5529;
+  box-shadow: 0 0 0 4px rgba(140, 85, 41, 0.15);
+}
+
+/* ==============================================================================
+   I FOGLI DI PERGAMENA ARTIGIANALE (.foglio-pergamena)
+   ============================================================================== */
+.diario-pergamene-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.foglio-pergamena {
+  background: linear-gradient(175deg, #fbf7ec 0%, #f7f0df 100%);
+  border: 1px solid #d9c8a0;
+  border-left: 8px solid #8e5828;
+  border-radius: 10px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 16px rgba(70, 40, 15, 0.12), inset 0 0 35px rgba(215, 185, 135, 0.18);
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.foglio-pergamena:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(70, 40, 15, 0.18), inset 0 0 40px rgba(215, 185, 135, 0.22);
+}
+
+.foglio-pergamena-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #d5be9b;
+}
+
+.foglio-data-creazione {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #5d3516;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.foglio-cartiglio-fonte {
+  background: #f1e4cb;
+  border: 1px solid #c9b48c;
+  color: #4a2810;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.foglio-titolo {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2e1607;
+  margin: 0 0 10px 0;
+  font-family: "Georgia", "Garamond", serif;
+}
+
+.foglio-testo-pensiero {
+  font-size: 19px;
+  line-height: 1.75;
+  color: #2b1708;
+  font-family: "Georgia", "Garamond", serif;
+  margin: 0 0 16px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.foglio-pergamena-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5d6ba;
+}
+
+.foglio-azioni-sinistra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-pergamena-azione {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1.5px solid #ad8e65;
+  background: #ffffff;
+  color: #3b1e0a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(50, 25, 10, 0.08);
+}
+
+.btn-pergamena-azione:hover {
+  background: #f3ebd9;
+  border-color: #703d15;
+  transform: translateY(-1px);
+}
+
+.btn-pergamena-cronologia {
+  border-color: #4a6885;
+  color: #1a3652;
+}
+
+.btn-pergamena-cronologia:hover {
+  background: #edf4fa;
+  border-color: #1b446e;
+}
+
+.btn-pergamena-cestina {
+  border-color: #bd7b7b;
+  color: #821f1f;
+  background: #fff8f8;
+}
+
+.btn-pergamena-cestina:hover {
+  background: #fde8e8;
+  border-color: #a82020;
+}
+
+/* Modale Scrittura Foglio */
+.foglio-scrittura {
+  font-family: "Georgia", "Garamond", serif;
+  font-size: 19px;
+  line-height: 1.7;
+  color: #241205;
+  background: #fdfaf3;
+  border: 2px solid #d5be9b;
+}
+
+.foglio-scrittura:focus {
+  background: #ffffff;
+  border-color: #703d15;
+  box-shadow: 0 0 0 4px rgba(112, 61, 21, 0.15);
+}
+
+/* ==============================================================================
+   SICUREZZA ANTI-TREMORE & ACCESSIBILITÀ CESTINAMENTO
+   ============================================================================== */
+.sicurezza-alert-box {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: #eef7f0;
+  border: 2px solid #a3d9ad;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.anteprima-cestinamento-box {
+  background: #fcf6eb;
+  border: 1px solid #dccaa7;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+
+.anti-tremore-box {
+  background: #fff5f2;
+  border: 2.5px dashed #cf7359;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.anti-tremore-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.anti-tremore-checkbox {
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  accent-color: #a82020;
+  flex-shrink: 0;
+}
+
+.btn-elimina-sicuro {
+  background: linear-gradient(180deg, #b72b2b 0%, #7d1515 100%);
+  color: #ffffff;
+  border: 2px solid #5a0c0c;
+  border-radius: 8px;
+  padding: 12px 22px;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(140, 20, 20, 0.3);
+}
+
+.btn-elimina-sicuro:disabled {
+  background: #c5a4a4 !important;
+  border-color: #9f8282 !important;
+  color: #ffffff !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+
+.btn-elimina-sicuro:not(:disabled):hover {
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, #d33535 0%, #941b1b 100%);
+  box-shadow: 0 6px 16px rgba(140, 20, 20, 0.45);
+}
+
+/* ==============================================================================
+   CRONOLOGIA DELLE REVISIONI & CESTINO MODALI
+   ============================================================================== */
+.cronologia-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.cronologia-card {
+  background: #ffffff;
+  border: 1.5px solid #c9d8e6;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 6px rgba(25, 50, 75, 0.06);
+}
+
+.cronologia-card.versione-attuale {
+  border-color: #4a9d5d;
+  background: #f7fcf8;
+}
+
+.cronologia-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #4a637d;
+  font-weight: 700;
+}
+
+.cronologia-badge {
+  background: #e2f0e6;
+  color: #1e6b30;
+  border: 1px solid #a8d5b2;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+}
+
+.cronologia-testo {
+  font-family: "Georgia", "Garamond", serif;
+  font-size: 17px;
+  line-height: 1.65;
+  color: #243547;
+  white-space: pre-wrap;
+}
+
+/* Cestino lista */
+.cestino-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.cestino-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 1.5px solid #dcd1be;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 5px rgba(50, 30, 10, 0.06);
+}
+
+.cestino-info {
+  flex: 1;
+}
+
+.cestino-titolo {
+  font-size: 18px;
+  font-weight: bold;
+  color: #3b2010;
+  margin-bottom: 4px;
+  font-family: "Georgia", "Garamond", serif;
+}
+
+.cestino-testo-snippet {
+  font-size: 15px;
+  color: #5d402b;
+  margin-bottom: 6px;
+  font-style: italic;
+}
+
+.cestino-badge-giorni {
+  display: inline-block;
+  background: #fff4e5;
+  color: #a85810;
+  border: 1px solid #f1c794;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-ripristina-rapido {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
+  color: #ffffff;
+  border: 1.5px solid #144919;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 3px 8px rgba(27, 94, 32, 0.25);
+  white-space: nowrap;
+}
+
+.btn-ripristina-rapido:hover {
+  background: linear-gradient(180deg, #388e3c 0%, #25702b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(27, 94, 32, 0.35);
+}
+
+.btn-svuota-cestino {
+  background: #fdf2f2;
+  color: #9e2a2b;
+  border: 1.5px solid #dca4a4;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-svuota-cestino:hover {
+  background: #a82020;
+  color: #ffffff;
+  border-color: #a82020;
+}
+
+.diario-vuoto-box {
+  text-align: center;
+  padding: 48px 24px;
+  background: #fdfbf7;
+  border: 2px dashed #d5be9b;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.diario-vuoto-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+}
+
+.diario-vuoto-titolo {
+  font-size: 26px;
+  color: #3b2010;
+  margin-bottom: 8px;
+  font-family: "Georgia", "Garamond", serif;
+}
+
+.diario-vuoto-desc {
+  font-size: 18px;
+  color: #6d4b2e;
+  max-width: 580px;
+  margin: 0 auto 24px auto;
+  line-height: 1.6;
 }

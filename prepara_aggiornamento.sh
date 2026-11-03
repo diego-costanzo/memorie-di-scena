@@ -139,7 +139,7 @@ fi
 (cd "$DEST_DIR" && bash ./avvia.sh > /dev/null 2>&1 &)
 
 # 7. Conferma a video
-mostra_avviso "Memorie di Scena" "🎭 Aggiornamento completato con successo!\n\nTutti i tuoi libri, copioni e ricordi sono al sicuro.\nLa nuova ricerca per citazione è attiva e da adesso l'app si avvia direttamente senza finestra del terminale."
+mostra_avviso "Memorie di Scena" "🎭 Aggiornamento completato con successo!\n\nTutti i tuoi libri, copioni e ricordi sono al sicuro.\nLa Bussola Culturale e il nuovo Diario dei Pensieri su pergamena sono pronti all'uso!"
 
 exit 0
 EOF

@@ -251,6 +251,44 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_elem ON appunti(elemento_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_appunti_testo ON appunti(testo);")
 
+        # 4. Tabelle Diario dei Pensieri e Cronologia Revisioni
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS diario_pensieri (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                titolo TEXT,
+                testo TEXT NOT NULL,
+                fonte_riferimento TEXT,
+                data_creazione TEXT NOT NULL,
+                data_ultima_modifica TEXT,
+                eliminato INTEGER NOT NULL DEFAULT 0,
+                data_eliminazione TEXT
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_diario_eliminato ON diario_pensieri(eliminato);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_diario_data ON diario_pensieri(data_creazione);")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS diario_cronologia (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                pensiero_id INTEGER NOT NULL REFERENCES diario_pensieri(id) ON DELETE CASCADE,
+                testo_precedente TEXT NOT NULL,
+                data_modifica TEXT NOT NULL
+            );
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_diario_cron_elem ON diario_cronologia(pensiero_id);")
+
+        # Pulizia automatica Cestino a 30 giorni:
+        # Rimuove definitivamente solo gli appunti cestinati da oltre 30 giorni
+        try:
+            cursor.execute("""
+                DELETE FROM diario_pensieri 
+                WHERE eliminato = 1 
+                  AND data_eliminazione IS NOT NULL 
+                  AND date(substr(data_eliminazione, 1, 10)) <= date('now', '-30 days');
+            """)
+        except Exception as e:
+            print(f"[Diario] Pulizia 30gg: {e}")
+
 
 
 def scarica_copertina_web(titolo, autore, tipo, elemento_id):
@@ -484,6 +522,34 @@ def _cerca_locale(frase):
                     'fonte_icona': '📓',
                     'in_archivio': True,
                     'elemento_id': row['elem_id']
+                })
+
+            # 3. Cerca nel Diario dei Pensieri e Memorie (fogli di pergamena)
+            cursor.execute("""
+                SELECT id, titolo, testo, fonte_riferimento, data_creazione
+                FROM diario_pensieri
+                WHERE eliminato = 0 AND (testo LIKE ? OR titolo LIKE ? OR fonte_riferimento LIKE ?)
+                ORDER BY id DESC
+                LIMIT 5
+            """, (pattern, pattern, pattern))
+            for row in cursor.fetchall():
+                rif = row['fonte_riferimento'] or 'Pensiero libero'
+                titolo_pensiero = row['titolo'] or (row['testo'][:45] + '…' if len(row['testo']) > 45 else row['testo'])
+                risultati.append({
+                    'titolo': titolo_pensiero,
+                    'autore': f"Dal tuo Diario dei Pensieri ({rif})",
+                    'editore': f"Scritto nel tuo Diario il {row['data_creazione']}",
+                    'anno': '',
+                    'snippet': f"📜 Trovato sul foglio di pergamena del tuo Diario: «{row['testo']}»",
+                    'copertina_url': '',
+                    'lingua': 'it',
+                    'pagine': '',
+                    'link_info': '',
+                    'anteprima_link': '',
+                    'fonte': 'Il Tuo Diario dei Pensieri',
+                    'fonte_icona': '📜',
+                    'in_archivio': True,
+                    'diario_id': row['id']
                 })
     except Exception as e:
         print(f"[Ricerca Locale] Errore: {e}")
@@ -1516,6 +1582,240 @@ def api_ricerca_citazione():
             "success": False,
             "errore": "Si è verificato un errore durante la ricerca. Riprova fra qualche istante."
         }), 500
+
+
+# ------------------------------------------------------------------------------
+# API DIARIO DEI PENSIERI & MEMORIE (TACCUINO SU PERGAMENA)
+# ------------------------------------------------------------------------------
+
+def _formatta_data_italiana(dt=None):
+    """Formatta la data in italiano elegante e calligrafico per i fogli di pergamena."""
+    if dt is None:
+        dt = datetime.now()
+    giorni_it = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica']
+    mesi_it = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+    giorno_sett = giorni_it[dt.weekday()]
+    mese_str = mesi_it[dt.month]
+    return f"{giorno_sett}, {dt.day} {mese_str} {dt.year} • ore {dt.strftime('%H:%M')}"
+
+
+@app.route("/api/diario/lista", methods=["GET"])
+def api_diario_lista():
+    """Elenca tutti i pensieri attivi (non eliminati), con filtro opzionale ?q=..."""
+    q = request.args.get('q', '').strip()
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Conteggio pensieri nel cestino
+        cursor.execute("SELECT COUNT(*) FROM diario_pensieri WHERE eliminato = 1")
+        conteggio_cestino = cursor.fetchone()[0]
+
+        if q:
+            pattern = f"%{q}%"
+            cursor.execute("""
+                SELECT d.id, d.titolo, d.testo, d.fonte_riferimento, d.data_creazione, d.data_ultima_modifica,
+                       (SELECT COUNT(*) FROM diario_cronologia c WHERE c.pensiero_id = d.id) AS num_revisioni
+                FROM diario_pensieri d
+                WHERE d.eliminato = 0 AND (d.testo LIKE ? OR d.titolo LIKE ? OR d.fonte_riferimento LIKE ?)
+                ORDER BY d.id DESC
+            """, (pattern, pattern, pattern))
+        else:
+            cursor.execute("""
+                SELECT d.id, d.titolo, d.testo, d.fonte_riferimento, d.data_creazione, d.data_ultima_modifica,
+                       (SELECT COUNT(*) FROM diario_cronologia c WHERE c.pensiero_id = d.id) AS num_revisioni
+                FROM diario_pensieri d
+                WHERE d.eliminato = 0
+                ORDER BY d.id DESC
+            """)
+
+        pensieri = []
+        for r in cursor.fetchall():
+            pensieri.append({
+                'id': r['id'],
+                'titolo': r['titolo'] or '',
+                'testo': r['testo'],
+                'fonte_riferimento': r['fonte_riferimento'] or '',
+                'data_creazione': r['data_creazione'],
+                'data_ultima_modifica': r['data_ultima_modifica'] or '',
+                'num_revisioni': r['num_revisioni']
+            })
+
+    return jsonify({
+        'success': True,
+        'pensieri': pensieri,
+        'conteggio_cestino': conteggio_cestino,
+        'totale': len(pensieri)
+    })
+
+
+@app.route("/api/diario/nuovo", methods=["POST"])
+def api_diario_nuovo():
+    """Salva un nuovo foglio di pergamena nel diario con data e ora indelebili."""
+    dati = request.get_json(silent=True) or request.form
+    testo = (dati.get('testo') or '').strip()
+    if not testo:
+        return jsonify({'success': False, 'messaggio': 'Scrivi il testo del pensiero o della citazione prima di salvare.'}), 400
+
+    titolo = (dati.get('titolo') or '').strip()
+    fonte = (dati.get('fonte_riferimento') or '').strip()
+    data_leggibile = _formatta_data_italiana()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO diario_pensieri (titolo, testo, fonte_riferimento, data_creazione, data_ultima_modifica, eliminato)
+            VALUES (?, ?, ?, ?, ?, 0)
+        """, (titolo, testo, fonte, data_leggibile, data_leggibile))
+        nuovo_id = cursor.lastrowid
+
+    return jsonify({'success': True, 'id': nuovo_id, 'data_creazione': data_leggibile})
+
+
+@app.route("/api/diario/<int:pensiero_id>/modifica", methods=["POST"])
+def api_diario_modifica(pensiero_id):
+    """
+    Modifica un pensiero con rilevamento intelligente delle modifiche REALI:
+    se il testo è effettivamente cambiato, memorizza la versione precedente nella cronologia.
+    """
+    dati = request.get_json(silent=True) or request.form
+    nuovo_testo = (dati.get('testo') or '').strip()
+    if not nuovo_testo:
+        return jsonify({'success': False, 'messaggio': 'Il testo non può essere vuoto.'}), 400
+
+    nuovo_titolo = (dati.get('titolo') or '').strip()
+    nuova_fonte = (dati.get('fonte_riferimento') or '').strip()
+    data_modifica = _formatta_data_italiana()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT testo, titolo, fonte_riferimento FROM diario_pensieri WHERE id = ?", (pensiero_id,))
+        vecchio = cursor.fetchone()
+        if not vecchio:
+            return jsonify({'success': False, 'messaggio': 'Pensiero non trovato.'}), 404
+
+        vecchio_testo = vecchio['testo']
+        testo_modificato = (nuovo_testo != vecchio_testo.strip())
+
+        # Salva in cronologia SOLO se c'è una modifica reale al testo
+        if testo_modificato:
+            cursor.execute("""
+                INSERT INTO diario_cronologia (pensiero_id, testo_precedente, data_modifica)
+                VALUES (?, ?, ?)
+            """, (pensiero_id, vecchio_testo, data_modifica))
+
+        cursor.execute("""
+            UPDATE diario_pensieri 
+            SET titolo = ?, testo = ?, fonte_riferimento = ?, data_ultima_modifica = ?
+            WHERE id = ?
+        """, (nuovo_titolo, nuovo_testo, nuova_fonte, data_modifica, pensiero_id))
+
+    return jsonify({'success': True, 'testo_modificato': testo_modificato, 'data_modifica': data_modifica})
+
+
+@app.route("/api/diario/<int:pensiero_id>/cronologia", methods=["GET"])
+def api_diario_cronologia(pensiero_id):
+    """Restituisce la cronologia fedele delle revisioni storiche di un pensiero."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT titolo, testo, fonte_riferimento, data_creazione, data_ultima_modifica FROM diario_pensieri WHERE id = ?", (pensiero_id,))
+        pensiero = cursor.fetchone()
+        if not pensiero:
+            return jsonify({'success': False, 'messaggio': 'Pensiero non trovato.'}), 404
+
+        cursor.execute("""
+            SELECT id, testo_precedente, data_modifica 
+            FROM diario_cronologia 
+            WHERE pensiero_id = ? 
+            ORDER BY id ASC
+        """, (pensiero_id,))
+        revisioni = [
+            {
+                'id': r['id'],
+                'testo_precedente': r['testo_precedente'],
+                'data_modifica': r['data_modifica']
+            }
+            for r in cursor.fetchall()
+        ]
+
+    return jsonify({
+        'success': True,
+        'titolo': pensiero['titolo'] or '',
+        'testo_attuale': pensiero['testo'],
+        'fonte_riferimento': pensiero['fonte_riferimento'] or '',
+        'data_creazione': pensiero['data_creazione'],
+        'data_ultima_modifica': pensiero['data_ultima_modifica'],
+        'revisioni': revisioni
+    })
+
+
+@app.route("/api/diario/<int:pensiero_id>/cestina", methods=["POST"])
+def api_diario_cestina(pensiero_id):
+    """Sposta l'appunto nel cestino di sicurezza (custodito per 30 giorni)."""
+    oggi_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE diario_pensieri 
+            SET eliminato = 1, data_eliminazione = ? 
+            WHERE id = ?
+        """, (oggi_iso, pensiero_id))
+    return jsonify({'success': True})
+
+
+@app.route("/api/diario/<int:pensiero_id>/ripristina", methods=["POST"])
+def api_diario_ripristina(pensiero_id):
+    """Ripristina un appunto dal Cestino al Diario con 1 solo clic."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE diario_pensieri 
+            SET eliminato = 0, data_eliminazione = NULL 
+            WHERE id = ?
+        """, (pensiero_id,))
+    return jsonify({'success': True})
+
+
+@app.route("/api/diario/cestino", methods=["GET"])
+def api_diario_cestino():
+    """Elenca gli appunti nel cestino indicando per ciascuno i giorni rimanenti su 30."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, titolo, testo, fonte_riferimento, data_creazione, data_eliminazione
+            FROM diario_pensieri
+            WHERE eliminato = 1
+            ORDER BY data_eliminazione DESC
+        """)
+        elementi = []
+        for r in cursor.fetchall():
+            data_elim = r['data_eliminazione']
+            giorni_rimasti = 30
+            if data_elim:
+                try:
+                    dt_elim = datetime.strptime(data_elim[:10], "%Y-%m-%d")
+                    delta = (datetime.now() - dt_elim).days
+                    giorni_rimasti = max(0, 30 - delta)
+                except Exception:
+                    giorni_rimasti = 30
+
+            elementi.append({
+                'id': r['id'],
+                'titolo': r['titolo'] or '',
+                'testo': r['testo'],
+                'fonte_riferimento': r['fonte_riferimento'] or '',
+                'data_creazione': r['data_creazione'],
+                'giorni_rimasti': giorni_rimasti
+            })
+    return jsonify({'success': True, 'elementi': elementi, 'totale': len(elementi)})
+
+
+@app.route("/api/diario/svuota_cestino", methods=["POST"])
+def api_diario_svuota_cestino():
+    """Svuota definitivamente gli elementi presenti nel cestino."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM diario_pensieri WHERE eliminato = 1")
+    return jsonify({'success': True})
 
 
 @app.route("/api/chiudi", methods=["POST"])

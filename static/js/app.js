@@ -663,7 +663,10 @@ function eseguiRicercaCitazione() {
           }
           
           let linkHtml = '';
-          if (r.in_archivio) {
+          if (r.diario_id) {
+            card.classList.add('in-diario');
+            linkHtml = `<button type="button" class="citazione-link in-diario" onclick="chiudiModali(); apriPensieroDalDiario(${r.diario_id})">📜 Apri Foglio nel tuo Diario →</button>`;
+          } else if (r.in_archivio) {
             card.classList.add('in-libreria');
             linkHtml = `<button type="button" class="citazione-link in-casa" onclick="chiudiModali(); apriModalModifica('${r.elemento_id}')">🏠 Apri Scheda & Ricordi nella tua Collezione →</button>`;
           } else {
@@ -675,13 +678,15 @@ function eseguiRicercaCitazione() {
             }
           }
           
+          const iconaPlaceholder = r.diario_id ? '📜' : '📖';
+
           card.innerHTML = `
             <div class="citazione-card-body">
               <div class="citazione-cover-box">
                 ${r.copertina_url 
                   ? `<img src="${escapeHtml(r.copertina_url)}" alt="Copertina" class="citazione-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                     <div class="citazione-cover-placeholder" style="display:none;">📖</div>`
-                  : `<div class="citazione-cover-placeholder">📖</div>`
+                     <div class="citazione-cover-placeholder" style="display:none;">${iconaPlaceholder}</div>`
+                  : `<div class="citazione-cover-placeholder">${iconaPlaceholder}</div>`
                 }
               </div>
               <div class="citazione-card-content">
@@ -739,7 +744,7 @@ function eseguiRicercaCitazione() {
   });
 }
 
-// Supporto tasto INVIO nel campo di ricerca citazione
+// Supporto tasto INVIO nel campo di ricerca citazione e inizializzazione Diario
 document.addEventListener('DOMContentLoaded', () => {
   const campoCitazione = document.getElementById('campo_citazione');
   if (campoCitazione) {
@@ -750,4 +755,601 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Carica i dati iniziali del Diario e aggiorna il badge di conteggio
+  caricaPensieriDiario();
 });
+
+// =============================================================================
+// REGISTRO 2: DIARIO DEI PENSIERI & MEMORIE (TACCUINO SU PERGAMENA)
+// =============================================================================
+
+// Stato in memoria dei pensieri attualmente visualizzati
+let pensieriDiarioAttuali = [];
+let timerFiltroDiario = null;
+
+/**
+ * Commuta la visualizzazione tra lo Scaffale delle Opere e il Diario dei Pensieri
+ * @param {'scaffale'|'diario'} tab 
+ */
+function mostraRegistro(tab) {
+  const tabScaffale = document.getElementById('tabRegistroScaffale');
+  const tabDiario = document.getElementById('tabRegistroDiario');
+  const sezScaffale = document.getElementById('sezioneScaffale');
+  const sezDiario = document.getElementById('sezioneDiario');
+
+  if (tab === 'diario') {
+    if (tabScaffale) {
+      tabScaffale.classList.remove('active');
+      tabScaffale.setAttribute('aria-selected', 'false');
+    }
+    if (tabDiario) {
+      tabDiario.classList.add('active');
+      tabDiario.setAttribute('aria-selected', 'true');
+    }
+    if (sezScaffale) sezScaffale.style.display = 'none';
+    if (sezDiario) sezDiario.style.display = 'block';
+    
+    // Ricarica la lista per assicurare freschezza
+    caricaPensieriDiario();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    if (tabScaffale) {
+      tabScaffale.classList.add('active');
+      tabScaffale.setAttribute('aria-selected', 'true');
+    }
+    if (tabDiario) {
+      tabDiario.classList.remove('active');
+      tabDiario.setAttribute('aria-selected', 'false');
+    }
+    if (sezScaffale) sezScaffale.style.display = 'block';
+    if (sezDiario) sezDiario.style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+/**
+ * Carica i pensieri dal server con eventuale filtro testuale
+ */
+function caricaPensieriDiario(query = '', callback = null) {
+  const url = query ? `/api/diario/lista?q=${encodeURIComponent(query)}` : '/api/diario/lista';
+
+  fetch(url)
+    .then(res => res.json())
+    .then(dati => {
+      if (!dati.success) return;
+
+      pensieriDiarioAttuali = dati.pensieri || [];
+
+      // Aggiorna il badge sul tab del diario
+      const badge = document.getElementById('badgeConteggioDiario');
+      if (badge) {
+        badge.textContent = dati.totale || 0;
+      }
+
+      // Aggiorna conteggio nel pulsante cestino
+      const txtCestino = document.getElementById('txtConteggioCestino');
+      if (txtCestino) {
+        txtCestino.textContent = dati.conteggio_cestino || 0;
+      }
+
+      const griglia = document.getElementById('grigliaPensieri');
+      const boxVuoto = document.getElementById('diarioVuotoBox');
+      const boxNessunFiltro = document.getElementById('diarioNessunFiltro');
+
+      if (!griglia) return;
+
+      if (pensieriDiarioAttuali.length === 0) {
+        griglia.innerHTML = '';
+        griglia.style.display = 'none';
+
+        if (query && query.trim().length > 0) {
+          if (boxNessunFiltro) boxNessunFiltro.style.display = 'block';
+          if (boxVuoto) boxVuoto.style.display = 'none';
+        } else {
+          if (boxNessunFiltro) boxNessunFiltro.style.display = 'none';
+          if (boxVuoto) boxVuoto.style.display = 'block';
+        }
+      } else {
+        if (boxVuoto) boxVuoto.style.display = 'none';
+        if (boxNessunFiltro) boxNessunFiltro.style.display = 'none';
+        griglia.style.display = 'flex';
+
+        griglia.innerHTML = '';
+        pensieriDiarioAttuali.forEach(p => {
+          const card = document.createElement('article');
+          card.className = 'foglio-pergamena';
+          card.id = `pensiero-card-${p.id}`;
+
+          const fonteHtml = p.fonte_riferimento 
+            ? `<div class="foglio-cartiglio-fonte">📖 ${escapeHtml(p.fonte_riferimento)}</div>` 
+            : '';
+
+          const titoloHtml = p.titolo 
+            ? `<h3 class="foglio-titolo">${escapeHtml(p.titolo)}</h3>` 
+            : '';
+
+          const cronologiaTesto = p.num_revisioni > 0 
+            ? `⏳ Cronologia (${p.num_revisioni})` 
+            : '⏳ Cronologia';
+
+          card.innerHTML = `
+            <header class="foglio-pergamena-header">
+              <div class="foglio-data-creazione">
+                <span>🗓️</span>
+                <span>${escapeHtml(p.data_creazione)}</span>
+              </div>
+              ${fonteHtml}
+            </header>
+
+            ${titoloHtml}
+
+            <div class="foglio-testo-pensiero">${escapeHtml(p.testo)}</div>
+
+            <footer class="foglio-pergamena-footer">
+              <div class="foglio-azioni-sinistra">
+                <button type="button" class="btn-pergamena-azione" onclick="apriModalModificaPensiero(${p.id})">
+                  ✏️ Modifica
+                </button>
+                <button type="button" class="btn-pergamena-azione btn-pergamena-cronologia" onclick="apriModalCronologiaPensiero(${p.id})" title="Rileggi la storia delle modifiche reali nel tempo">
+                  ${cronologiaTesto}
+                </button>
+              </div>
+              <div>
+                <button type="button" class="btn-pergamena-azione btn-pergamena-cestina" onclick="avviaCestinaPensiero(${p.id})" title="Sposta nel Cestino protetto (custodito per 30 giorni)">
+                  🗑️ Cestina
+                </button>
+              </div>
+            </footer>
+          `;
+
+          griglia.appendChild(card);
+        });
+      }
+
+      if (typeof callback === 'function') {
+        callback();
+      }
+    })
+    .catch(err => {
+      console.error('Errore caricamento pensieri diario:', err);
+    });
+}
+
+/**
+ * Filtro istantaneo nei pensieri del diario
+ */
+function filtraPensieriDiario(val) {
+  const btnCancella = document.getElementById('btnCancellaDiario');
+  if (btnCancella) {
+    btnCancella.style.display = (val && val.trim().length > 0) ? 'inline-flex' : 'none';
+  }
+  clearTimeout(timerFiltroDiario);
+  timerFiltroDiario = setTimeout(() => {
+    caricaPensieriDiario(val ? val.trim() : '');
+  }, 220);
+}
+
+/**
+ * Cancella il filtro di ricerca nel diario
+ */
+function cancellaRicercaDiario() {
+  const campo = document.getElementById('campoRicercaDiario');
+  const btnCancella = document.getElementById('btnCancellaDiario');
+  if (campo) {
+    campo.value = '';
+    campo.focus();
+  }
+  if (btnCancella) btnCancella.style.display = 'none';
+  caricaPensieriDiario('');
+}
+
+/**
+ * Apertura modale Scrivi Nuovo Pensiero
+ */
+function apriModalNuovoPensiero() {
+  chiudiModali();
+  const form = document.getElementById('formNuovoPensiero');
+  if (form) form.reset();
+  const modal = document.getElementById('modalNuovoPensiero');
+  if (modal) {
+    modal.classList.add('active');
+    setTimeout(() => {
+      const txt = document.getElementById('pensiero_testo');
+      if (txt) txt.focus();
+    }, 120);
+  }
+}
+
+/**
+ * Salvataggio nuovo appunto sul diario
+ */
+function salvaNuovoPensiero(event) {
+  if (event) event.preventDefault();
+  const titoloInput = document.getElementById('pensiero_titolo');
+  const testoInput = document.getElementById('pensiero_testo');
+  const fonteInput = document.getElementById('pensiero_fonte');
+
+  const testo = testoInput ? testoInput.value.trim() : '';
+  if (!testo) {
+    alert('Scrivi il testo del pensiero o della citazione prima di custodirlo.');
+    if (testoInput) testoInput.focus();
+    return;
+  }
+
+  const payload = {
+    titolo: titoloInput ? titoloInput.value.trim() : '',
+    testo: testo,
+    fonte_riferimento: fonteInput ? fonteInput.value.trim() : ''
+  };
+
+  fetch('/api/diario/nuovo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(dati => {
+    if (dati.success) {
+      chiudiModali();
+      if (titoloInput) titoloInput.value = '';
+      if (testoInput) testoInput.value = '';
+      if (fonteInput) fonteInput.value = '';
+      caricaPensieriDiario();
+      mostraRegistro('diario');
+    } else {
+      alert(dati.messaggio || 'Si è verificato un errore durante il salvataggio.');
+    }
+  })
+  .catch(err => {
+    console.error('Errore nuovo pensiero:', err);
+    alert('Errore di connessione durante il salvataggio.');
+  });
+}
+
+/**
+ * Apertura modale Modifica Pensiero
+ */
+function apriModalModificaPensiero(id) {
+  const p = pensieriDiarioAttuali.find(item => item.id === id);
+  const idInput = document.getElementById('modifica_pensiero_id');
+  const titoloInput = document.getElementById('modifica_pensiero_titolo');
+  const testoInput = document.getElementById('modifica_pensiero_testo');
+  const fonteInput = document.getElementById('modifica_pensiero_fonte');
+
+  if (p) {
+    if (idInput) idInput.value = p.id;
+    if (titoloInput) titoloInput.value = p.titolo || '';
+    if (testoInput) testoInput.value = p.testo || '';
+    if (fonteInput) fonteInput.value = p.fonte_riferimento || '';
+    chiudiModali();
+    const modal = document.getElementById('modalModificaPensiero');
+    if (modal) {
+      modal.classList.add('active');
+      setTimeout(() => {
+        if (testoInput) testoInput.focus();
+      }, 100);
+    }
+  } else {
+    // Se non presente nella cache, carica i dettagli
+    fetch(`/api/diario/${id}/cronologia`)
+      .then(res => res.json())
+      .then(dati => {
+        if (dati.success) {
+          if (idInput) idInput.value = id;
+          if (titoloInput) titoloInput.value = dati.titolo || '';
+          if (testoInput) testoInput.value = dati.testo_attuale || '';
+          if (fonteInput) fonteInput.value = dati.fonte_riferimento || '';
+          chiudiModali();
+          const modal = document.getElementById('modalModificaPensiero');
+          if (modal) {
+            modal.classList.add('active');
+            setTimeout(() => {
+              if (testoInput) testoInput.focus();
+            }, 100);
+          }
+        }
+      });
+  }
+}
+
+/**
+ * Invio modifiche pensiero (con salvataggio automatico versione se testo modificato)
+ */
+function inviaModificaPensiero(event) {
+  if (event) event.preventDefault();
+  const idInput = document.getElementById('modifica_pensiero_id');
+  const titoloInput = document.getElementById('modifica_pensiero_titolo');
+  const testoInput = document.getElementById('modifica_pensiero_testo');
+  const fonteInput = document.getElementById('modifica_pensiero_fonte');
+
+  const id = idInput ? idInput.value : null;
+  const testo = testoInput ? testoInput.value.trim() : '';
+
+  if (!id) return;
+  if (!testo) {
+    alert('Il testo del pensiero non può essere vuoto.');
+    if (testoInput) testoInput.focus();
+    return;
+  }
+
+  const payload = {
+    titolo: titoloInput ? titoloInput.value.trim() : '',
+    testo: testo,
+    fonte_riferimento: fonteInput ? fonteInput.value.trim() : ''
+  };
+
+  fetch(`/api/diario/${id}/modifica`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(dati => {
+    if (dati.success) {
+      chiudiModali();
+      caricaPensieriDiario();
+    } else {
+      alert(dati.messaggio || 'Errore durante la modifica del pensiero.');
+    }
+  })
+  .catch(err => {
+    console.error('Errore salvataggio modifica:', err);
+    alert('Errore di connessione durante la modifica.');
+  });
+}
+
+/**
+ * Apertura cronologia fedele delle revisioni storiche
+ */
+function apriModalCronologiaPensiero(id) {
+  chiudiModali();
+  const contenitore = document.getElementById('cronologiaContenitore');
+  if (contenitore) {
+    contenitore.innerHTML = '<div style="text-align: center; padding: 24px; color: #5a4028; font-size: 16px;">⏳ Recupero della storia delle stesure...</div>';
+  }
+
+  const modal = document.getElementById('modalCronologiaPensiero');
+  if (modal) modal.classList.add('active');
+
+  fetch(`/api/diario/${id}/cronologia`)
+    .then(res => res.json())
+    .then(dati => {
+      if (!dati.success || !contenitore) return;
+
+      let html = `
+        <div class="cronologia-card versione-attuale">
+          <div class="cronologia-card-header">
+            <span>🌟 Versione Attuale nel Diario</span>
+            <span class="cronologia-badge">Attiva</span>
+          </div>
+          <div style="font-size: 14px; color: #43634b; margin-bottom: 8px;">
+            ${dati.data_ultima_modifica ? `Ultima modifica registrata: <strong>${escapeHtml(dati.data_ultima_modifica)}</strong>` : `Creazione originale: <strong>${escapeHtml(dati.data_creazione)}</strong>`}
+            ${dati.fonte_riferimento ? ` &bull; Riferimento: <em>${escapeHtml(dati.fonte_riferimento)}</em>` : ''}
+          </div>
+          <div class="cronologia-testo">${escapeHtml(dati.testo_attuale)}</div>
+        </div>
+      `;
+
+      if (!dati.revisioni || dati.revisioni.length === 0) {
+        html += `
+          <div style="background: #fcf9f2; border: 1.5px dashed #d5be9b; border-radius: 8px; padding: 20px; text-align: center; color: #624323; margin-top: 16px;">
+            <span style="font-size: 26px;">🪶</span><br>
+            <strong style="font-size: 17px;">Prima stesura originale intatta</strong>
+            <p style="margin: 6px 0 0 0; font-size: 15px; color: #7a583a;">
+              Questo foglio è stato custodito il <strong>${escapeHtml(dati.data_creazione)}</strong> e non ha ancora subito modifiche successive al testo.
+            </p>
+          </div>
+        `;
+      } else {
+        html += `<h4 style="margin: 20px 0 10px 0; color: #23374d; font-size: 16px; font-weight: bold;">📜 Stesure precedenti archiviate (${dati.revisioni.length}):</h4>`;
+        
+        // Ordina dalla più recente alla più vecchia
+        const revs = [...dati.revisioni].reverse();
+        revs.forEach((rev) => {
+          html += `
+            <div class="cronologia-card" style="margin-bottom: 12px;">
+              <div class="cronologia-card-header">
+                <span>⏳ Bozza del ${escapeHtml(rev.data_modifica)}</span>
+                <span style="font-size: 13px; color: #627588;">Sostituita da nuova stesura</span>
+              </div>
+              <div class="cronologia-testo" style="color: #455668;">${escapeHtml(rev.testo_precedente)}</div>
+            </div>
+          `;
+        });
+      }
+
+      contenitore.innerHTML = html;
+    })
+    .catch(err => {
+      if (contenitore) {
+        contenitore.innerHTML = '<div style="color: #900; padding: 20px;">Errore di caricamento della cronologia.</div>';
+      }
+      console.error('Errore cronologia:', err);
+    });
+}
+
+/**
+ * Avvia il flusso protetto di cestinamento anti-tremore (Protezione a doppio blocco)
+ */
+function avviaCestinaPensiero(id) {
+  const p = pensieriDiarioAttuali.find(item => item.id === id);
+  const estratto = p ? (p.testo.length > 95 ? p.testo.substring(0, 95) + '…' : p.testo) : '...';
+
+  const idInput = document.getElementById('idPensieroDaCestinare');
+  const anteprima = document.getElementById('testoCestinaAnteprima');
+  const chk = document.getElementById('chkConfermaCestino');
+  const btn = document.getElementById('btnConfermaCestina');
+
+  if (idInput) idInput.value = id;
+  if (anteprima) anteprima.textContent = '«' + estratto + '»';
+  if (chk) chk.checked = false;
+  if (btn) btn.disabled = true;
+
+  chiudiModali();
+  const modal = document.getElementById('modalCestinaPensiero');
+  if (modal) modal.classList.add('active');
+}
+
+/**
+ * Esegue lo spostamento nel cestino una volta sbloccata la spunta di sicurezza
+ */
+function eseguiCestinaPensiero() {
+  const idInput = document.getElementById('idPensieroDaCestinare');
+  const id = idInput ? idInput.value : null;
+  if (!id) return;
+
+  const btn = document.getElementById('btnConfermaCestina');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Spostamento...';
+  }
+
+  fetch(`/api/diario/${id}/cestina`, { method: 'POST' })
+    .then(res => res.json())
+    .then(dati => {
+      if (btn) btn.textContent = '🗑️ SÌ, SPOSTA NEL CESTINO';
+      if (dati.success) {
+        chiudiModali();
+        caricaPensieriDiario();
+      } else {
+        alert(dati.messaggio || 'Errore durante lo spostamento nel cestino.');
+      }
+    })
+    .catch(err => {
+      if (btn) btn.textContent = '🗑️ SÌ, SPOSTA NEL CESTINO';
+      console.error('Errore cestina:', err);
+      alert('Errore di connessione durante lo spostamento nel cestino.');
+    });
+}
+
+/**
+ * Apre il Cestino dei Ricordi con l'elenco degli appunti recuperabili entro 30 giorni
+ */
+function apriModalCestinoDiario() {
+  chiudiModali();
+  const lista = document.getElementById('listaCestino');
+  if (lista) {
+    lista.innerHTML = '<div style="text-align: center; padding: 24px; color: #5a4028; font-size: 16px;">⏳ Apertura del Cestino di sicurezza...</div>';
+  }
+
+  const modal = document.getElementById('modalCestinoDiario');
+  if (modal) modal.classList.add('active');
+
+  fetch('/api/diario/cestino')
+    .then(res => res.json())
+    .then(dati => {
+      if (!dati.success || !lista) return;
+
+      const txtConteggio = document.getElementById('txtConteggioCestino');
+      if (txtConteggio) {
+        txtConteggio.textContent = dati.totale || 0;
+      }
+
+      if (!dati.elementi || dati.elementi.length === 0) {
+        lista.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; color: #6d503b;">
+            <div style="font-size: 40px; margin-bottom: 8px;">🌱</div>
+            <h3 style="font-size: 20px; margin-bottom: 6px; color: #3b2210;">Il Cestino è vuoto</h3>
+            <p style="font-size: 16px; margin: 0; color: #7b583f;">Tutti i tuoi pensieri e appunti sono salvi e al loro posto nel Diario.</p>
+          </div>
+        `;
+        return;
+      }
+
+      lista.innerHTML = '';
+      dati.elementi.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'cestino-card';
+
+        const snippet = item.testo.length > 100 
+          ? item.testo.substring(0, 100) + '…' 
+          : item.testo;
+
+        card.innerHTML = `
+          <div class="cestino-info">
+            <div class="cestino-titolo">${escapeHtml(item.titolo || 'Appunto senza titolo')}</div>
+            <div class="cestino-testo-snippet">«${escapeHtml(snippet)}»</div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px;">
+              <span class="cestino-badge-giorni">⏳ Custodito ancora per ${item.giorni_rimasti} giorn${item.giorni_rimasti === 1 ? 'o' : 'i'}</span>
+              <span style="font-size: 13.5px; color: #7a6048;">Scritto in origine il ${escapeHtml(item.data_creazione)}</span>
+            </div>
+          </div>
+          <div>
+            <button type="button" class="btn-ripristina-rapido" onclick="ripristinaPensiero(${item.id})">
+              ↩️ Ripristina nel Diario
+            </button>
+          </div>
+        `;
+
+        lista.appendChild(card);
+      });
+    })
+    .catch(err => {
+      if (lista) {
+        lista.innerHTML = '<div style="color: #900; padding: 20px;">Errore nel caricamento del cestino.</div>';
+      }
+      console.error('Errore cestino:', err);
+    });
+}
+
+/**
+ * Ripristina un appunto dal Cestino al Diario con 1 solo clic
+ */
+function ripristinaPensiero(id) {
+  fetch(`/api/diario/${id}/ripristina`, { method: 'POST' })
+    .then(res => res.json())
+    .then(dati => {
+      if (dati.success) {
+        apriModalCestinoDiario();
+        caricaPensieriDiario();
+      } else {
+        alert(dati.messaggio || 'Errore durante il ripristino del pensiero.');
+      }
+    })
+    .catch(err => {
+      console.error('Errore ripristina appunto:', err);
+      alert('Errore di connessione durante il ripristino.');
+    });
+}
+
+/**
+ * Svuota definitivamente il cestino con richiesta di conferma esplicita
+ */
+function confermaSvuotaCestino() {
+  if (!confirm('Vuoi davvero cancellare definitivamente tutti i fogli presenti nel Cestino?\n\nQuesta operazione non potrà essere annullata.')) {
+    return;
+  }
+
+  fetch('/api/diario/svuota_cestino', { method: 'POST' })
+    .then(res => res.json())
+    .then(dati => {
+      if (dati.success) {
+        apriModalCestinoDiario();
+        caricaPensieriDiario();
+      } else {
+        alert(dati.messaggio || 'Errore durante lo svuotamento del cestino.');
+      }
+    })
+    .catch(err => {
+      console.error('Errore svuota cestino:', err);
+      alert('Errore di connessione.');
+    });
+}
+
+/**
+ * Navigazione dalla Bussola Culturale direttamente a un foglio del Diario
+ */
+function apriPensieroDalDiario(id) {
+  mostraRegistro('diario');
+  caricaPensieriDiario('', () => {
+    setTimeout(() => {
+      const card = document.getElementById(`pensiero-card-${id}`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('evidenzia-pulsante');
+        setTimeout(() => card.classList.remove('evidenzia-pulsante'), 2500);
+      }
+    }, 150);
+  });
+}
