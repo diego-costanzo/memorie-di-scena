@@ -46,31 +46,31 @@ LOG_FILE="$DIR/data/server.log"
 mkdir -p "$DIR/data"
 
 # ------------------------------------------------------------------------------
-# 2. CONTROLLO SERVER E AVVIO IN BACKGROUND
+# 2. CONTROLLO SERVER E AVVIO IN BACKGROUND (ACCELERATO)
 # ------------------------------------------------------------------------------
-if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
+if curl -s --connect-timeout 0.15 "$APP_URL" > /dev/null 2>&1; then
     echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
 else
-    echo "🎭 Avvio di Memorie di Scena in corso..."
-    # Avvia in background completamente disaccoppiato da sessione e terminale (setsid/nohup + disown)
+    echo "🎭 Avvio rapido di Memorie di Scena in corso..."
+    # Avvia in background con bytecode ottimizzato (-O / PYTHONOPTIMIZE=1) per massima reattività e leggerezza RAM
     if command -v setsid &> /dev/null; then
-        PYTHONUNBUFFERED=1 setsid "$PYTHON_BIN" "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
+        PYTHONOPTIMIZE=1 PYTHONUNBUFFERED=1 setsid "$PYTHON_BIN" -O "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
     else
-        PYTHONUNBUFFERED=1 nohup "$PYTHON_BIN" "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
+        PYTHONOPTIMIZE=1 PYTHONUNBUFFERED=1 nohup "$PYTHON_BIN" -O "$APP_PY" </dev/null >> "$LOG_FILE" 2>&1 &
     fi
     SERVER_PID=$!
     disown "$SERVER_PID" 2>/dev/null || true
     echo "$SERVER_PID" > "$PID_FILE"
 
-    # Attesa rapida disponibilità server (fino a 25 tentativi da 0.2s = 5s max)
+    # Attesa reattiva ad alta frequenza (polling a 40ms per apertura fulminea del browser appena il server è pronto)
     TENTATIVI=0
     SERVER_PRONTO=0
-    while [ "$TENTATIVI" -lt 25 ]; do
-        if curl -s -m 1 "$APP_URL" > /dev/null 2>&1; then
+    while [ "$TENTATIVI" -lt 60 ]; do
+        if curl -s --connect-timeout 0.05 "$APP_URL" > /dev/null 2>&1; then
             SERVER_PRONTO=1
             break
         fi
-        sleep 0.2
+        sleep 0.04
         TENTATIVI=$((TENTATIVI + 1))
     done
 
@@ -80,35 +80,42 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 3. APERTURA AUTOMATICA NEL BROWSER PREDEFINITO
+# 3. APERTURA AUTOMATICA NEL BROWSER PREDEFINITO (MASSIMA VELOCITÀ)
 # ------------------------------------------------------------------------------
 apri_browser() {
     local url="$1"
 
-    # 1. Se è presente Chromium o Google Chrome (supporta modalità app massimizzata)
+    # 1. Se è presente Chromium o Google Chrome (modalità app nativa, esclude sincronizzazioni lente di rete)
     if command -v chromium &> /dev/null; then
-        chromium --start-maximized --app="$url" &> /dev/null &
+        nohup chromium --start-maximized --app="$url" --no-first-run --no-default-browser-check --disable-background-networking --disable-sync </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     elif command -v google-chrome &> /dev/null; then
-        google-chrome --start-maximized --app="$url" &> /dev/null &
+        nohup google-chrome --start-maximized --app="$url" --no-first-run --no-default-browser-check --disable-background-networking --disable-sync </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     # 2. Se è presente Firefox ESR (predefinito Debian) o Firefox standard
     elif command -v firefox-esr &> /dev/null; then
-        firefox-esr "$url" &> /dev/null &
+        nohup firefox-esr "$url" </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     elif command -v firefox &> /dev/null; then
-        firefox "$url" &> /dev/null &
+        nohup firefox "$url" </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     # 3. Fallback universale Freedesktop (xdg-open) o Konqueror (Q4OS / TDE)
     elif command -v xdg-open &> /dev/null; then
-        xdg-open "$url" &> /dev/null &
+        nohup xdg-open "$url" </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     elif command -v konqueror &> /dev/null; then
-        konqueror "$url" &> /dev/null &
+        nohup konqueror "$url" </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     # 4. Fallback Python webbrowser
     else
-        "$PYTHON_BIN" -m webbrowser "$url" &> /dev/null &
+        nohup "$PYTHON_BIN" -m webbrowser "$url" </dev/null &> /dev/null &
+        disown 2>/dev/null || true
         return 0
     fi
 }

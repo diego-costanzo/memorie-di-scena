@@ -32,8 +32,6 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 import requests
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageEnhance, ImageOps
-import pytesseract
 
 # Soppressione pulita del banner di sviluppo Flask se presente
 try:
@@ -54,28 +52,26 @@ os.makedirs(COVERS_DIR, exist_ok=True)
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------------------
-# RILEVAMENTO ARCHITETTURA (32-bit vs 64-bit) & COMPATIBILITÀ UNIVERSALE
+# RILEVAMENTO ARCHITETTURA (32-bit vs 64-bit) & AVVIO FULMINEO (LAZY LOADING)
 # ------------------------------------------------------------------------------
 IS_32_BIT = sys.maxsize <= 2**32
-
-# Adattamento filtro di ricampionamento per tutte le versioni di Pillow (da Pillow 5 a 11+)
-if hasattr(Image, "Resampling"):
-    RESAMPLE_FILTER = Image.Resampling.LANCZOS
-elif hasattr(Image, "LANCZOS"):
-    RESAMPLE_FILTER = Image.LANCZOS
-else:
-    RESAMPLE_FILTER = getattr(Image, "ANTIALIAS", 1)
-
-if IS_32_BIT:
-    # Su sistemi a 32-bit o hardware datato ottimizza l'uso della RAM e spazio indirizzi
-    Image.MAX_IMAGE_PIXELS = 50_000_000
-    MAX_IMAGE_DIM = 1800
-else:
-    Image.MAX_IMAGE_PIXELS = 150_000_000
-    MAX_IMAGE_DIM = 2400
+MAX_IMAGE_DIM = 1800 if IS_32_BIT else 2400
 
 # Pool di thread per chiamate API parallele (I/O bound, leggero anche su 32-bit)
 _MAX_WORKERS = 6 if IS_32_BIT else 12
+
+def _get_ocr_tools():
+    """
+    Carica Pillow e pytesseract on-demand solo quando l'utente usa l'acquisizione OCR.
+    Questo rende l'avvio dell'applicazione istantaneo e fa risparmiare decine di megabyte
+    di RAM per il normale uso quotidiano dell'archivio.
+    """
+    from PIL import Image, ImageEnhance, ImageOps
+    import pytesseract
+    Image.MAX_IMAGE_PIXELS = 50_000_000 if IS_32_BIT else 150_000_000
+    resample = getattr(Image, "Resampling", None)
+    filter_lanczos = resample.LANCZOS if resample else getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 1))
+    return Image, ImageEnhance, ImageOps, pytesseract, filter_lanczos
 
 # Migrazione di sicurezza: se archivio.db risiede nella root, spostalo in data/archivio.db
 ROOT_OLD_DB = os.path.join(BASE_DIR, "archivio.db")
@@ -103,9 +99,6 @@ app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 86400
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "jfif"}
 
-# Previene falsi positivi 'DecompressionBomb' di Pillow su scatti ad altissima risoluzione
-Image.MAX_IMAGE_PIXELS = 150_000_000
-
 def allowed_file(filename):
     """Verifica che l'estensione sia tra quelle strettamente consentite."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -117,26 +110,20 @@ def file_too_large(e):
 
 
 # ------------------------------------------------------------------------------
-# GESTIONE DATABASE CON CONTEXT MANAGER & INTEGRITÀ REFERENZIALE
+# GESTIONE DATABASE CON CONTEXT MANAGER & VELOCITÀ MASSIMA
 # ------------------------------------------------------------------------------
 @contextmanager
 def get_db():
     """
-    Context manager sicuro per SQLite (Ultra-ottimizzato per 32-bit e 64-bit):
-    - Attiva sempre PRAGMA foreign_keys = ON;
-    - Attiva WAL (Write-Ahead Logging) per velocità fino a 10x superiori e zero lock;
-    - PRAGMA synchronous = NORMAL per scritture disco istantanee e sicure;
-    - Esegue commit automatico al termine del blocco;
-    - Esegue rollback automatico in caso di errore;
-    - Garantisce la chiusura immediata della connessione per evitare lock e leak di memoria.
+    Context manager sicuro e ultra-leggero per SQLite:
+    - PRAGMA foreign_keys = ON;
+    - Commit automatico ed esecuzione rollback in caso di errore;
+    - Chiusura immediata della connessione per zero memory leaks;
+    - Zero overhead di pragma ridondanti sulle singole connessioni.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA synchronous = NORMAL;")
-    conn.execute("PRAGMA temp_store = MEMORY;")
-    conn.execute("PRAGMA cache_size = -8000;")
     try:
         yield conn
         conn.commit()
@@ -149,6 +136,13 @@ def get_db():
 
 def init_db():
     """Inizializza o aggiorna lo schema del database in modo sicuro e transazionale."""
+    with sqlite3.connect(DB_PATH) as setup_conn:
+        # Ottimizzazioni persistenti nel file SQLite (attive per sempre su tutte le sessioni)
+        setup_conn.execute("PRAGMA journal_mode = WAL;")
+        setup_conn.execute("PRAGMA synchronous = NORMAL;")
+        setup_conn.execute("PRAGMA mmap_size = 268435456;") # 256MB zero-copy memory map
+        setup_conn.commit()
+
     with get_db() as conn:
         cursor = conn.cursor()
         
@@ -533,11 +527,12 @@ def _cerca_locale(frase):
                 LIMIT 5
             """, (pattern, pattern, pattern))
             for row in cursor.fetchall():
-                rif = row['fonte_riferimento'] or 'Pensiero libero'
+                rif = (row['fonte_riferimento'] or '').strip()
                 titolo_pensiero = row['titolo'] or (row['testo'][:45] + '…' if len(row['testo']) > 45 else row['testo'])
+                autore_desc = f"Dal tuo Diario dei Pensieri ({rif})" if rif else "Dal tuo Diario dei Pensieri"
                 risultati.append({
                     'titolo': titolo_pensiero,
-                    'autore': f"Dal tuo Diario dei Pensieri ({rif})",
+                    'autore': autore_desc,
                     'editore': f"Scritto nel tuo Diario il {row['data_creazione']}",
                     'anno': '',
                     'snippet': f"📜 Trovato sul foglio di pergamena del tuo Diario: «{row['testo']}»",
@@ -1222,6 +1217,7 @@ def ocr_upload():
         return jsonify({"success": False, "errore": "Formato file non supportato. Carica un'immagine JPG, PNG o WEBP."}), 400
 
     try:
+        Image, ImageEnhance, ImageOps, pytesseract, resample_filter = _get_ocr_tools()
         # Apertura sicura con context manager Pillow
         with Image.open(file.stream) as img:
             # Correzione orientamento EXIF se presente
@@ -1233,7 +1229,7 @@ def ocr_upload():
             # Ottimizzazione RAM & OCR: ridimensionamento calibrato per 32-bit e 64-bit
             max_lato = MAX_IMAGE_DIM
             if max(img.size) > max_lato:
-                img.thumbnail((max_lato, max_lato), RESAMPLE_FILTER)
+                img.thumbnail((max_lato, max_lato), resample_filter)
 
             # Salvataggio copia per la copertina con nome sicuro
             estensione = clean_filename.rsplit(".", 1)[1].lower()

@@ -64,7 +64,7 @@ Ti è mai capitato di ricordare mezza battuta teatrale, una frase memorabile o u
 
 ### 📜 5. Il Diario dei Pensieri & Memorie (Fogli su Pergamena)
 Un vero e proprio taccuino culturale integrato nell'applicazione, accessibile con la scheda **«📜 Diario dei Pensieri & Memorie»**:
-- **Estetica su pergamena:** Ogni riflessione viene presentata come un foglio calligrafico con bordi dorati, font classico serif leggibile e cartigli dedicati alla data di stesura (*es. Lunedì 3 Novembre 2026 alle 23:15*) e all'eventuale riferimento letterario o artistico.
+- **Estetica su pergamena:** Ogni riflessione viene presentata come un foglio calligrafico con bordi dorati, font classico serif leggibile e cartigli dedicati alla data di stesura (*es. Lunedì 3 Novembre 2026 alle 23:15*) e all'eventuale riferimento a un'opera o autore (completamente facoltativo, perfetto per pensieri e riflessioni personali).
 - **Cronologia fedele delle vere stesure:**
   - Nessun doppione: se un foglio viene riaperto e risalvato senza modificare il testo, la cronologia non registra modifiche fittizie.
   - Se il testo viene realmente riscritto o corretto, la versione precedente viene custodita storicamente: premendo **«⏳ Cronologia»** si può rileggere l'evoluzione del pensiero e tutte le bozze passate.
