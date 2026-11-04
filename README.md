@@ -102,7 +102,9 @@ memorie-di-scena/
 ├── prepara_aggiornamento.sh    # Generatore del pacchetto di aggiornamento sicuro (.zip)
 ├── requirements.txt            # Dipendenze Python minime e standard
 ├── data/
-│   └── archivio.db             # Database personale SQLite (libri, copioni, diario e prestiti)
+│   ├── archivio.db             # Database personale SQLite (libri, copioni, diario e prestiti)
+│   ├── migra_database.py       # Utilità sicura per importare dati da un vecchio database
+│   └── migra.sh                # Script rapido per avviare la migrazione dei dati precedenti
 ├── static/
 │   ├── css/style.css           # Grafica a taccuino, pergamena, caratteri grandi e contrasto elevato
 │   ├── js/app.js               # Logica interattiva (registri, diario, anti-tremore, ricerca)

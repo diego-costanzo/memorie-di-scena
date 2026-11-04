@@ -31,6 +31,9 @@ cp "$DIR/installa.sh" "$TMP_DIR/"
 cp "$DIR/requirements.txt" "$TMP_DIR/"
 cp -r "$DIR/templates" "$TMP_DIR/"
 cp -r "$DIR/static" "$TMP_DIR/"
+mkdir -p "$TMP_DIR/data"
+cp "$DIR/data/migra_database.py" "$TMP_DIR/data/"
+cp "$DIR/data/migra.sh" "$TMP_DIR/data/"
 
 # 2. Crea lo script di aggiornamento intelligente AGGIORNA.sh
 cat << 'EOF' > "$TMP_DIR/AGGIORNA.sh"
@@ -127,8 +130,11 @@ cp "$SOURCE_DIR/installa.sh" "$DEST_DIR/"
 cp "$SOURCE_DIR/requirements.txt" "$DEST_DIR/"
 cp -r "$SOURCE_DIR/templates" "$DEST_DIR/"
 cp -r "$SOURCE_DIR/static" "$DEST_DIR/"
+mkdir -p "$DEST_DIR/data"
+cp "$SOURCE_DIR/data/migra_database.py" "$DEST_DIR/data/"
+cp "$SOURCE_DIR/data/migra.sh" "$DEST_DIR/data/"
 
-chmod +x "$DEST_DIR/avvia.sh" "$DEST_DIR/ferma.sh" "$DEST_DIR/installa.sh"
+chmod +x "$DEST_DIR/avvia.sh" "$DEST_DIR/ferma.sh" "$DEST_DIR/installa.sh" "$DEST_DIR/data/migra.sh" "$DEST_DIR/data/migra_database.py"
 
 # 5. Aggiorna l'icona sul desktop impostando l'avvio invisibile (senza terminale)
 if [ -x "$DEST_DIR/installa.sh" ]; then
