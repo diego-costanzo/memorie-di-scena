@@ -1241,24 +1241,67 @@ def ocr_upload():
             rgb_img = img.convert("RGB")
             rgb_img.save(save_path, "JPEG", quality=85, optimize=True)
 
-            # Pre-elaborazione ottimizzata OCR: scala di grigi e contrasto
+            # Pre-elaborazione avanzata multi-pass per copertine e locandine artistiche
             gray = rgb_img.convert("L")
-            enhancer = ImageEnhance.Contrast(gray)
-            enhanced = enhancer.enhance(2.0)
+            autocontr = ImageOps.autocontrast(gray, cutoff=1)
+            enhanced = ImageEnhance.Contrast(autocontr).enhance(2.0)
 
-            # Esecuzione Tesseract
+            blocchi_testo = []
+
+            # Passata 1: PSM 11 (Sparse text: ideale per titoli artistici e scritte sparse di copertina)
             try:
-                testo_raw = pytesseract.image_to_string(enhanced, lang="ita")
-            except Exception as e_lang:
-                print(f"[OCR Warning] Lingua 'ita' non attiva, fallback a default: {e_lang}")
-                testo_raw = pytesseract.image_to_string(enhanced)
+                t1 = pytesseract.image_to_string(enhanced, lang="ita", config="--psm 11")
+                if t1:
+                    blocchi_testo.append(t1)
+            except Exception as e1:
+                try:
+                    t1_fallback = pytesseract.image_to_string(enhanced, config="--psm 11")
+                    if t1_fallback:
+                        blocchi_testo.append(t1_fallback)
+                except Exception:
+                    pass
+
+            # Passata 2: PSM 3 (Paginazione automatica per sottotitoli e righe continue)
+            try:
+                t2 = pytesseract.image_to_string(enhanced, lang="ita", config="--psm 3")
+                if t2:
+                    blocchi_testo.append(t2)
+            except Exception:
+                pass
+
+            # Passata 3: Negativo / Invertito (cattura scritte dorate, bianche o gialle su fondi scuri)
+            try:
+                inv_img = ImageOps.invert(autocontr)
+                inv_enh = ImageEnhance.Contrast(inv_img).enhance(2.0)
+                t3 = pytesseract.image_to_string(inv_enh, lang="ita", config="--psm 11")
+                if t3:
+                    blocchi_testo.append(t3)
+                del inv_img, inv_enh
+            except Exception:
+                pass
 
             # Rilascio esplicito delle risorse grafiche dalla memoria
-            del enhanced, enhancer, gray, rgb_img
+            del enhanced, autocontr, gray, rgb_img
 
-        # Pulizia righe estratte
-        linee_raw = testo_raw.splitlines()
-        linee = [r.strip() for r in linee_raw if r.strip() and len(r.strip()) >= 2]
+        # Pulizia intelligente, rimozione rumore da disegni e deduplicazione righe
+        linee = []
+        viste = set()
+        for blocco in blocchi_testo:
+            for riga in blocco.splitlines():
+                r = riga.strip(" \t\n\r|~_#*=\\\"\'`^:;—–-")
+                if not r or len(r) < 2:
+                    continue
+                # Filtra artefatti e linee grafiche da illustrazioni
+                alnum = re.findall(r"[a-zA-Z0-9àèéìòùÀÈÉÌÒÙ]", r)
+                if len(alnum) < 2:
+                    continue
+                if len(alnum) / len(r) < 0.45:
+                    continue
+
+                norm = r.lower()
+                if norm not in viste:
+                    viste.add(norm)
+                    linee.append(r)
 
         return jsonify({
             "success": True,
