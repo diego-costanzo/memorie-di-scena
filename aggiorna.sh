@@ -42,12 +42,15 @@
 #   - Non introdurre `rm -rf` su percorsi che contengono la parola data.
 # ==============================================================================
 set -uo pipefail
+# Alcune configurazioni di sistema attivano l'espansione della storia (`!`)
+# anche negli script: la disattiviamo, altrimenti i messaggi con «!» falliscono.
+set +H
 
 # --- Percorsi -----------------------------------------------------------------
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-REPO="${MEMORIE_REPO:-diego-costanzo/Archivio-Basic-Libri}"
+REPO="${MEMORIE_REPO:-diego-costanzo/memorie-di-scena}"
 CANALE="${MEMORIE_CANALE:-release}"
 DATA_DIR="${MEMORIE_DATA_DIR:-$DIR/data}"
 DB_PATH="$DATA_DIR/archivio.db"
@@ -113,7 +116,9 @@ PY
 }
 
 mostra_avviso() {
-    local titolo="Memorie di Scena" testo="$1"
+    local titolo="Memorie di Scena" testo
+    # Rende reali le andate a capo scritte come \n nei messaggi.
+    testo="$(printf '%b' "$1")"
     if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
         if command -v kdialog > /dev/null; then
             kdialog --title "$titolo" --msgbox "$testo" 2>/dev/null && return 0
@@ -128,7 +133,8 @@ mostra_avviso() {
 
 chiedi_conferma() {
     # Restituisce 0 solo se l'utente conferma con un clic.
-    local testo="$1"
+    local testo
+    testo="$(printf '%b' "$1")"
     if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
         if command -v kdialog > /dev/null; then
             kdialog --title "Memorie di Scena" --yesno "$testo" 2>/dev/null
@@ -563,7 +569,7 @@ PY
     rm -rf "$staging" "$archivio_pacchetto"
     scrivi_stato "ok" "Aggiornamento a $remota completato. I tuoi dati sono al sicuro." "$remota"
     say "Aggiornamento completato: ora sei alla versione $remota."
-    mostra_avviso "Aggiornamento completato!\n\nOra usi la versione $remota.\nTutti i tuoi libri, copioni e ricordi sono al sicuro."
+    mostra_avviso "Aggiornamento completato.\n\nOra usi la versione $remota.\nTutti i tuoi libri, copioni e ricordi sono al sicuro."
     return 0
 }
 

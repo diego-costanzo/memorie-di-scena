@@ -16,20 +16,21 @@
 
 1. [Che cos'è, in due parole](#-che-cosè-in-due-parole)
 2. [A chi è pensato](#-a-chi-è-pensato)
-3. [Cosa puoi fare](#-cosa-puoi-fare)
-4. [La Bussola Culturale: ritrovare una citazione](#-la-bussola-culturale-ritrovare-una-citazione)
-5. [Novità di questa versione](#-novità-di-questa-versione)
-6. [Come si installa (tre passi)](#-come-si-installa-tre-passi)
-7. [L'uso di ogni giorno](#-luso-di-ogni-giorno)
-8. [Dove sono i tuoi dati](#-dove-sono-i-tuoi-dati)
-9. [Riservatezza e sicurezza](#-riservatezza-e-sicurezza)
-10. [Requisiti e solo software libero](#-requisiti-di-sistema)
-11. [Struttura del progetto](#-struttura-del-progetto)
-12. [Verifiche e test](#-verifiche-e-test)
-13. [Se qualcosa non funziona](#-se-qualcosa-non-funziona)
-14. [Aggiornare senza perdere nulla](#-aggiornare-senza-perdere-nulla)
-15. [Come aiutare il progetto](#-come-aiutare-il-progetto)
-16. [Licenza](#-licenza)
+3. [Come appare](#-come-appare)
+4. [Cosa puoi fare](#-cosa-puoi-fare)
+5. [La Bussola Culturale: ritrovare una citazione](#-la-bussola-culturale-ritrovare-una-citazione)
+6. [Novità di questa versione](#-novità-di-questa-versione)
+7. [Scaricare e installare](#-scaricare-e-installare-passo-per-passo)
+8. [L'uso di ogni giorno](#-luso-di-ogni-giorno)
+9. [Dove sono i tuoi dati](#-dove-sono-i-tuoi-dati)
+10. [Riservatezza e sicurezza](#-riservatezza-e-sicurezza)
+11. [Requisiti e solo software libero](#-requisiti-di-sistema)
+12. [Struttura del progetto](#-struttura-del-progetto)
+13. [Verifiche e test](#-verifiche-e-test)
+14. [Se qualcosa non funziona](#-se-qualcosa-non-funziona)
+15. [Aggiornare senza perdere nulla](#-aggiornare-senza-perdere-nulla)
+16. [Come aiutare il progetto](#-come-aiutare-il-progetto)
+17. [Licenza](#-licenza)
 
 ---
 
@@ -52,9 +53,9 @@ Tutto vive **sul tuo computer**. Nessun account, nessun abbonamento, nessun clou
 
 ---
 
-## 👵👴 A chi è pensato
+## 🎯 A chi è pensato
 
-Il progetto nasce per **persone che non hanno voglia di combattere con il computer**: chi ha più di sessant'anni, chi usa il PC solo per poche cose, chi ama il teatro o i libri e vuole un posto ordinato dove tenerne memoria.
+Il progetto nasce per **chi non ha voglia di combattere con il computer**: chi lo usa solo per poche cose, chi preferisce le parole semplici, chi ama il teatro o i libri e vuole un posto ordinato dove tenerne memoria.
 
 Per questo:
 
@@ -64,6 +65,18 @@ Per questo:
 - **Cestino con 30 giorni di custodia**: ciò che viene eliminato resta recuperabile per un mese.
 - **Nessun terminale da usare**: dopo l'installazione si apre con un doppio clic sull'icona della Scrivania.
 - **Zero pretese**: poche cose, fatte bene, spiegate con parole comuni.
+
+---
+
+## 📷 Come appare
+
+**La pagina iniziale** — il registro con i prestiti in evidenza e lo scaffale delle opere:
+
+![Pagina iniziale di Memorie di Scena](docs/immagini/home.png)
+
+**Acquisizione da foto** — basta una fotografia della copertina e i campi si compilano da soli:
+
+![Acquisizione rapida da foto](docs/immagini/acquisizione_ocr.png)
 
 ---
 
@@ -177,16 +190,21 @@ Questa versione è una revisione completa del programma, pensata per essere **pi
 10. **Prestiti in ritardo ben visibili** — chi non ha ancora restituito un libro viene segnalato in rosso, con il numero di giorni di ritardo: «⏰ In ritardo di 9 giorni: ricordati di chiederlo indietro».
 11. **Inventario stampabile** — un pulsante esporta tutta la collezione in un file CSV che si apre con LibreOffice o Excel, con i prestiti compresi. Utile per stampare l'elenco o conservarlo fuori dal computer.
 12. **Copia di sicurezza con un clic** — dalla pagina principale, il pulsante «💾 Copia di sicurezza» salva subito una copia del database nella cartella Download, senza chiudere il programma.
-13. **Test automatici e isolamento** — 29 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
+13. **Aggiornamenti automatici sicuri** — il programma controlla da solo, una volta alla settimana, se su GitHub c'è una versione nuova e lo segnala con un avviso e un pulsante. Prima di aggiornare salva una copia dei tuoi dati e, se qualcosa non va, rimette tutto com'era.
+14. **Test automatici e isolamento** — 35 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
 
 ---
 
-## 🚀 Come si installa (tre passi)
+## 🚀 Scaricare e installare (passo per passo)
 
-### Passo 1 — Apri la cartella del programma
-Apri il file manager, entra nella cartella di **Memorie di Scena**.
+### Passo 1 — Scarica il programma
+1. Apri nel browser la pagina del progetto: **https://github.com/diego-costanzo/memorie-di-scena**
+2. Premi il pulsante verde **«Code»** e poi **«Download ZIP»**.
+3. Apri la cartella **Download**, fai **tasto destro** sul file appena scaricato e scegli **«Estrai qui»**.
+4. Sposta la cartella ottenuta dove preferisci (ad esempio nella tua cartella personale) e, se vuoi, rinominala **Memorie di Scena**.
 
-### Passo 2 — Doppio clic su `installa.sh`
+### Passo 2 — Installa
+Apri la cartella del programma e fai **doppio clic su `installa.sh`**.
 Se compare una finestrella con due scelte, premi **«Esegui»** (o «Esegui nel terminale»).
 
 Lo script:
@@ -199,6 +217,8 @@ Lo script:
 
 ### Passo 3 — Da quel momento, solo doppio clic
 Doppio clic sull'icona **«Memorie di Scena»**. Il programma parte in silenzio e si apre nel browser a schermo intero. **Nessuna finestra nera da gestire.**
+
+> **Aggiornamenti**: non devi fare nulla. Il programma controlla da solo se c'è una versione nuova e, se c'è, mostra un avviso con il pulsante **«⬆️ Aggiorna ora»**. Vedi [Aggiornare senza perdere nulla](#-aggiornare-senza-perdere-nulla).
 
 ---
 
@@ -332,8 +352,8 @@ Memorie di Scena/
 ├── avvia.sh                    # avvio silenzioso e apertura del browser
 ├── ferma.sh                    # chiusura ordinata
 ├── aggiorna.sh                 # controlla e applica gli aggiornamenti da GitHub
-├── prepara_aggiornamento.sh    # crea il pacchetto ZIP manuale (per chi preferisce)
 ├── VERSION                     # versione installata (es. 2.0.0), confrontata con GitHub
+├── docs/immagini/              # le immagini che vedi in questa pagina
 ├── requirements.txt            # librerie Python necessarie
 ├── CONTRIBUTING.md             # come proporre un miglioramento
 ├── CODE_OF_CONDUCT.md          # regole di gentilezza nella comunità
@@ -413,7 +433,7 @@ I tuoi dati non vengono mai toccati: libri, prestiti, pensieri, copertine e diar
 
 ### Se un giorno vuoi aggiornare a mano
 
-Puoi anche scaricare il pacchetto dalla pagina **Releases** di GitHub, estrarre lo ZIP e fare doppio clic su **«1. CLICCA QUI PER AGGIORNARE»**: lo script salva una copia del database, sostituisce solo i file di programma e riapre tutto.
+Puoi anche scaricare di nuovo lo ZIP dalla pagina del progetto su GitHub ed estrarlo **nella stessa cartella**, rispondendo «Sostituisci» ai file di programma: la cartella `data/` con i tuoi dati non viene toccata.
 
 ---
 

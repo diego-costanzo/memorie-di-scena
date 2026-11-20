@@ -12,7 +12,7 @@ COSE DA SAPERE PRIMA DI MODIFICARE
   È il meccanismo con cui i test restano isolati e con cui si può fare
   un'installazione "portatile" su chiavetta. Va letta solo qui.
 - `IS_32_BIT` regola limiti di memoria e numero di thread: il programma deve
-  restare usabile su computer anziani, quindi i valori sono volutamente bassi.
+  restare usabile su computer poco potenti, quindi i valori sono volutamente bassi.
 - I parametri OCR sono calibrati con prove reali: cambiarli cambia precisione
   e tempi di attesa. Le soglie principali sono commentate una per una.
 - Le costanti sono lette all'import: dopo una modifica serve riavviare.

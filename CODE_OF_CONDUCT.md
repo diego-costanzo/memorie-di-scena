@@ -8,7 +8,7 @@
 
 - Usare un linguaggio **semplice e cortese**, anche quando si segnala un errore.
 - Accogliere chi ha meno esperienza senza sminuirlo.
-- Dare valore alle esigenze delle persone anziane e di chi ha difficoltà con la tecnologia.
+- Dare valore alle esigenze di chi ha poca familiarità con la tecnologia.
 - Accettare critiche costruttive e offrire spiegazioni comprensibili.
 - Riconoscere che il tempo e la buona volontà di ognuno sono doni, non obblighi.
 
@@ -31,7 +31,7 @@ Ogni segnalazione viene letta con attenzione e trattata con riservatezza. Chi ma
 
 ## Un principio semplice
 
-Prima di scrivere, chiediti: *«se questa frase la leggesse mia nonna, la troverebbe gentile?»*. Se la risposta è no, riscrivila.
+Prima di scrivere, chiediti: *«se questa frase la leggesse una persona a te cara, la troverebbe gentile?»*. Se la risposta è no, riscrivila.
 
 ---
 
