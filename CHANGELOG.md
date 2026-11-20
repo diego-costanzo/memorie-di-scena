@@ -7,6 +7,19 @@ Le versioni seguono la numerazione semantica: **MAJOR.MINOR.PATCH** (es. 2.0.0).
 
 ---
 
+## [2.0.1] — 20 novembre 2026
+
+Correzioni di sicurezza, senza cambiare nulla nell'uso quotidiano.
+
+### Corretto
+- **Copertine recuperate dal web solo da servizi fidati**: l'indirizzo dell'immagine deve essere `https` e appartenere a Wikimedia, Open Library o Cover Art Archive. Vengono rifiutati indirizzi locali o non previsti, anche dopo un rinvio (redirect). Evita che una risposta inattesa possa far scaricare contenuti dalla rete interna.
+- **Copie di sicurezza verificate**: sia il pulsante «💾 Copia di sicurezza» sia il backup automatico prima di un aggiornamento controllano l'integrità della copia (`PRAGMA integrity_check`) e la scartano se non è leggibile, invece di lasciare un file che sembra valido ma non lo è.
+
+### Aggiunto
+- **2 nuovi test automatici** (37 in totale) sulle protezioni appena descritte.
+
+---
+
 ## [2.0.0] — 19 novembre 2026
 
 Revisione completa del programma: più sicuro, più leggero, più solido. **L'uso quotidiano non cambia** e i dati esistenti vengono conservati.
@@ -14,7 +27,7 @@ Revisione completa del programma: più sicuro, più leggero, più solido. **L'us
 ### Aggiunto
 - **Aggiornamenti automatici sicuri**: il programma controlla GitHub all'avvio e una volta alla settimana; se c'è una versione nuova mostra un avviso con **«⬆️ Aggiorna ora»** e **«Più tardi»**. L'aggiornamento parte solo dopo un clic esplicito e una conferma, ed esegue in ordine: backup del database (API nativa di SQLite), archivio dell'intera cartella `data/`, istantanea del programma, download in `data/updates/`, verifica del pacchetto, sostituzione **dei soli file di programma**, test automatici, riavvio con controllo di avvio; in caso di errore **ripristina tutto**. La cartella `data/` non viene mai sovrascritta e non si usa `git pull`.
 - **Timer settimanale** installato da `installa.sh` (`memorie-aggiornamenti.timer` di systemd utente), con `RandomizedDelaySec` e `Persistent`.
-- **37 test automatici** di verifica, con database temporaneo isolato (`MEMORIE_DATA_DIR`).
+- **35 test automatici** di verifica, con database temporaneo isolato (`MEMORIE_DATA_DIR`).
 - **Guida visiva nel README**: immagini della pagina iniziale e dell'acquisizione da foto, più istruzioni di download e installazione passo per passo.
 - **Prestiti in ritardo evidenziati**: i prestiti scaduti compaiono in rosso con i giorni di ritardo, così è impossibile dimenticarsene.
 - **Esportazione inventario in CSV**: un pulsante scarica tutta la collezione (con i prestiti attivi) in un file apribile con LibreOffice o Excel, pronto da stampare o conservare.
