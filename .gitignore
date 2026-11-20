@@ -41,3 +41,6 @@ data/aggiornamento_stato.json
 # Pacchetti di rilascio e aggiornamento
 Aggiornamento_*.zip
 Aggiornamento_*.tar.gz
+
+# Copertine dell'utente: su un repository pubblico non devono mai finire
+static/covers/copertina_*
