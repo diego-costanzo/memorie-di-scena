@@ -10,6 +10,8 @@
 [![Versione](https://img.shields.io/badge/Versione-2.0.0-1b4332.svg)](VERSION)
 [![Licenza](https://img.shields.io/badge/Licenza-MIT-blue.svg)](LICENSE)
 
+**In breve** — *Memorie di Scena* è un **gestionale di biblioteca personale** e un **catalogo di copioni teatrali e dischi** che funziona interamente **offline** sul tuo computer, con **Flask** e **SQLite**: cataloga libri, vinili e CD, registra i **prestiti**, conserva un **diario di citazioni** e legge le copertine dalle **foto (OCR)**. È **open source**, gratuito e senza account; i dati non lasciano mai il tuo PC.
+
 ---
 
 ## 📑 Indice
