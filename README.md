@@ -193,7 +193,7 @@ Questa versione è una revisione completa del programma, pensata per essere **pi
 11. **Inventario stampabile** — un pulsante esporta tutta la collezione in un file CSV che si apre con LibreOffice o Excel, con i prestiti compresi. Utile per stampare l'elenco o conservarlo fuori dal computer.
 12. **Copia di sicurezza con un clic** — dalla pagina principale, il pulsante «💾 Copia di sicurezza» salva subito una copia del database nella cartella Download, senza chiudere il programma.
 13. **Aggiornamenti automatici sicuri** — il programma controlla da solo, una volta alla settimana, se su GitHub c'è una versione nuova e lo segnala con un avviso e un pulsante. Prima di aggiornare salva una copia dei tuoi dati e, se qualcosa non va, rimette tutto com'era.
-14. **Test automatici e isolamento** — 35 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
+14. **Test automatici e isolamento** — 37 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
 
 ---
 
@@ -379,13 +379,13 @@ Il programma sarà raggiungibile su <http://127.0.0.1:5000>. Per chiudere: `CTRL
 
 ## ✅ Verifiche e test
 
-Il progetto include 35 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia delle righe OCR, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza, calcolo dei giorni di ritardo e sistema di aggiornamento). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
+Il progetto include 37 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia delle righe OCR, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza e sua integrità, calcolo dei giorni di ritardo, sistema di aggiornamento e limiti di sicurezza nel recupero delle copertine). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
 
 ```bash
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-Risultato atteso: `Ran 35 tests ... OK`.
+Risultato atteso: `Ran 37 tests ... OK`.
 
 ---
 

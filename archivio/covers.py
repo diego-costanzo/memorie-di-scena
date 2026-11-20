@@ -33,6 +33,28 @@ from .http import get_api_session
 # file enorme o non-immagine.
 MAX_COVER_BYTES = 2 * 1024 * 1024
 
+# Domini da cui è ammesso scaricare un'immagine. Serve a impedire che un URL
+# inatteso (per esempio una risposta alterata o un redirect) faccia scaricare
+# contenuti da indirizzi interni alla macchina o da servizi non previsti.
+DOMINI_IMMAGINI_CONSENTITI = (
+    "coverartarchive.org",
+    "archive.org",
+    "openlibrary.org",
+    "wikimedia.org",
+)
+
+
+def _url_immagine_consentito(url):
+    """True solo per URL https verso i servizi di immagini previsti."""
+    try:
+        parti = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    if parti.scheme != "https" or not parti.hostname:
+        return False
+    host = parti.hostname.lower()
+    return any(host == dominio or host.endswith("." + dominio) for dominio in DOMINI_IMMAGINI_CONSENTITI)
+
 
 def scarica_copertina_web(titolo, autore, tipo, elemento_id):
     """Recupera la copertina online senza bloccare il database."""
@@ -101,11 +123,12 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
                     mbid = releases[0].get('id')
                     if mbid:
                         art_url = f"https://coverartarchive.org/release/{mbid}/front-500"
-                        img_resp = get_api_session().get(art_url, timeout=4, headers=headers, stream=True)
-                        if img_resp.status_code == 200:
-                            percorso = _salva_da_risposta(img_resp)
-                            if percorso:
-                                return percorso
+                        if _url_immagine_consentito(art_url):
+                            img_resp = get_api_session().get(art_url, timeout=4, headers=headers, stream=True)
+                            if img_resp.status_code == 200 and _url_immagine_consentito(img_resp.url):
+                                percorso = _salva_da_risposta(img_resp)
+                                if percorso:
+                                    return percorso
         except Exception as e:
             print(f"[Musica] Errore recupero copertina '{titolo}': {e}")
 
@@ -123,11 +146,12 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
             if docs and docs[0].get('cover_i'):
                 cover_id = docs[0]['cover_i']
                 img_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg"
-                img_resp = get_api_session().get(img_url, timeout=4, headers=headers, stream=True)
-                if img_resp.status_code == 200:
-                    percorso = _salva_da_risposta(img_resp)
-                    if percorso:
-                        return percorso
+                if _url_immagine_consentito(img_url):
+                    img_resp = get_api_session().get(img_url, timeout=4, headers=headers, stream=True)
+                    if img_resp.status_code == 200 and _url_immagine_consentito(img_resp.url):
+                        percorso = _salva_da_risposta(img_resp)
+                        if percorso:
+                            return percorso
     except Exception as e:
         print(f"[OpenLibrary] Errore recupero copertina '{titolo}': {e}")
 
@@ -143,8 +167,10 @@ def scarica_copertina_web(titolo, autore, tipo, elemento_id):
             for pdata in pagine.values():
                 if 'thumbnail' in pdata and 'source' in pdata['thumbnail']:
                     src = pdata['thumbnail']['source']
+                    if not _url_immagine_consentito(src):
+                        continue
                     img_resp = get_api_session().get(src, timeout=4, headers=headers, stream=True)
-                    if img_resp.status_code == 200:
+                    if img_resp.status_code == 200 and _url_immagine_consentito(img_resp.url):
                         percorso = _salva_da_risposta(img_resp)
                         if percorso:
                             return percorso

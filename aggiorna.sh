@@ -314,6 +314,15 @@ try:
 finally:
     destinazione.close()
     origine.close()
+# La copia deve essere leggibile: se non lo è, meglio fermarsi prima di toccare
+# il programma.
+controllo = sqlite3.connect(sys.argv[2])
+try:
+    esito = controllo.execute("PRAGMA integrity_check").fetchone()[0]
+finally:
+    controllo.close()
+if esito != "ok":
+    sys.exit("la copia del database non ha superato il controllo di integrità")
 PY
     echo "$destinazione"
 }

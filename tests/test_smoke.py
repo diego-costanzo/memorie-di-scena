@@ -253,6 +253,21 @@ class TestApplicazione(unittest.TestCase):
         self.assertIsNotNone(secondo)
         self.assertNotEqual(primo, secondo)
 
+    def test_copia_di_sicurezza_e_integra(self):
+        """La copia di sicurezza deve essere leggibile e superare integrity_check."""
+        import sqlite3
+
+        from archivio.db import backup_database
+
+        percorso = backup_database()
+        self.assertIsNotNone(percorso)
+        conn = sqlite3.connect(percorso)
+        try:
+            esito = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(esito, "ok")
+
     def test_un_solo_prestito_attivo_per_volume(self):
         """Il vincolo a livello di database impedisce due prestiti attivi
         contemporanei sullo stesso volume."""
@@ -332,6 +347,17 @@ class TestAggiornamenti(unittest.TestCase):
 
 
 class TestUtilità(unittest.TestCase):
+    def test_url_immagine_consentito_solo_servizi_previsti(self):
+        """Solo https verso i domini noti: niente indirizzi interni o non sicuri."""
+        from archivio.covers import _url_immagine_consentito
+
+        self.assertTrue(_url_immagine_consentito("https://upload.wikimedia.org/a.jpg"))
+        self.assertTrue(_url_immagine_consentito("https://covers.openlibrary.org/b/id/1-M.jpg"))
+        self.assertFalse(_url_immagine_consentito("http://upload.wikimedia.org/a.jpg"))
+        self.assertFalse(_url_immagine_consentito("http://127.0.0.1:5000/"))
+        self.assertFalse(_url_immagine_consentito("https://evil.example.com/a.jpg"))
+        self.assertFalse(_url_immagine_consentito("file:///etc/passwd"))
+
     def test_normalizza_testo_ignora_accenti(self):
         self.assertEqual(normalizza_testo("Perché"), "perche")
         self.assertEqual(normalizza_testo("È"), "e")

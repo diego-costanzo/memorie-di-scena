@@ -254,6 +254,25 @@ def backup_database():
         finally:
             origine.close()
 
+        # Controllo di integrità della copia: meglio scoprire subito una copia
+        # illeggibile che fidarsi di un file che sembra valido ma non lo è.
+        try:
+            verifica = sqlite3.connect(destinazione)
+            try:
+                esito = verifica.execute("PRAGMA integrity_check").fetchone()
+            finally:
+                verifica.close()
+        except sqlite3.Error as e:
+            print(f"[Backup] Copia non verificabile: {e}")
+            esito = None
+        if not esito or (esito[0] if isinstance(esito, tuple) else esito) != "ok":
+            print("[Backup] La copia non ha superato il controllo di integrità: viene scartata.")
+            try:
+                os.remove(destinazione)
+            except OSError:
+                pass
+            return None
+
         # Rotazione: conserva solo gli ultimi BACKUP_KEEP backup
         backups = sorted(
             (f for f in os.listdir(config.BACKUP_DIR) if f.startswith("archivio_backup_") and f.endswith(".db")),
