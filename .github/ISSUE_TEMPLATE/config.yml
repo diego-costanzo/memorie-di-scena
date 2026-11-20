@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔐 Segnalare un problema di sicurezza
+    url: https://github.com/OWNER/REPOSITORY/security/advisories/new
+    about: "Non aprire una Issue pubblica. Usa il canale privato descritto in SECURITY.md."
+  - name: 📖 Leggere le istruzioni
+    url: https://github.com/OWNER/REPOSITORY#readme
+    about: "Installazione, uso quotidiano e soluzioni ai piccoli problemi."

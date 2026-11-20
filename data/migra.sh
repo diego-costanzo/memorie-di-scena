@@ -13,3 +13,4 @@ if [ -f "$BASE_DIR/venv/bin/python" ]; then
 fi
 
 "$PYTHON_BIN" "$DIR/migra_database.py" "$@"
+

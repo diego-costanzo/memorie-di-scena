@@ -20,6 +20,12 @@ Thumbs.db
 backup.sh
 
 
+# Database personale (dati sensibili: non versionare MAI)
+data/archivio.db
+data/archivio.db-wal
+data/archivio.db-shm
+data/backup/
+
 # Cache ricerche e file di runtime server
 data/cache/
 data/server.pid
@@ -27,6 +33,10 @@ data/server.log
 data/*.log
 data/*backup*
 data/*.bak
+
+# Stato e materiale del sistema di aggiornamento (mai versionare)
+data/updates/
+data/aggiornamento_stato.json
 
 # Pacchetti di rilascio e aggiornamento
 Aggiornamento_*.zip

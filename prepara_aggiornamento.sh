@@ -25,12 +25,14 @@ echo "📦 Preparazione pacchetto di aggiornamento sicuro..."
 
 # 1. Copia i file aggiornati del programma (MAI il database)
 cp "$DIR/app.py" "$TMP_DIR/"
+cp -r "$DIR/archivio" "$TMP_DIR/"
 cp "$DIR/avvia.sh" "$TMP_DIR/"
 cp "$DIR/ferma.sh" "$TMP_DIR/"
 cp "$DIR/installa.sh" "$TMP_DIR/"
 cp "$DIR/requirements.txt" "$TMP_DIR/"
 cp -r "$DIR/templates" "$TMP_DIR/"
 cp -r "$DIR/static" "$TMP_DIR/"
+find "$TMP_DIR" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$TMP_DIR/data"
 cp "$DIR/data/migra_database.py" "$TMP_DIR/data/"
 cp "$DIR/data/migra.sh" "$TMP_DIR/data/"
@@ -124,12 +126,14 @@ fi
 
 # 4. Copia dei file aggiornati (senza mai toccare il database esistente!)
 cp "$SOURCE_DIR/app.py" "$DEST_DIR/"
+cp -r "$SOURCE_DIR/archivio" "$DEST_DIR/"
 cp "$SOURCE_DIR/avvia.sh" "$DEST_DIR/"
 cp "$SOURCE_DIR/ferma.sh" "$DEST_DIR/"
 cp "$SOURCE_DIR/installa.sh" "$DEST_DIR/"
 cp "$SOURCE_DIR/requirements.txt" "$DEST_DIR/"
 cp -r "$SOURCE_DIR/templates" "$DEST_DIR/"
 cp -r "$SOURCE_DIR/static" "$DEST_DIR/"
+find "$DEST_DIR/archivio" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null || true
 mkdir -p "$DEST_DIR/data"
 cp "$SOURCE_DIR/data/migra_database.py" "$DEST_DIR/data/"
 cp "$SOURCE_DIR/data/migra.sh" "$DEST_DIR/data/"

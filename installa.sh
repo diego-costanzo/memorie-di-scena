@@ -78,6 +78,44 @@ StartupNotify=true"
     done
 }
 
+# Controllo settimanale degli aggiornamenti tramite timer dell'utente.
+# NON installa nulla da solo: mostra un avviso e, se l'utente accetta, avvia
+# l'aggiornamento protetto (backup + verifica + ripristino automatico).
+installa_timer_aggiornamenti() {
+    command -v systemctl &> /dev/null || return 0
+    # Solo sessioni grafiche con systemd utente: altrimenti nessun timer.
+    systemctl --user show-environment &> /dev/null || return 0
+
+    local unit_dir="$HOME/.config/systemd/user"
+    mkdir -p "$unit_dir" 2>/dev/null || return 0
+
+    cat > "$unit_dir/memorie-aggiornamenti.service" <<EOF
+[Unit]
+Description=Memorie di Scena - controllo aggiornamenti
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash "$DIR/aggiorna.sh" --check --notifica
+EOF
+
+    cat > "$unit_dir/memorie-aggiornamenti.timer" <<'EOF'
+[Unit]
+Description=Memorie di Scena - controllo settimanale degli aggiornamenti
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl --user daemon-reload &> /dev/null || true
+    systemctl --user enable --now memorie-aggiornamenti.timer &> /dev/null || true
+}
+
 # ------------------------------------------------------------------------------
 # CONTROLLO IDEMPOTENZA: Se l'ambiente è già pronto, avvia subito l'app!
 # ------------------------------------------------------------------------------
@@ -122,6 +160,11 @@ PACCHETTI_NECESSARI=(
     python3-requests
     tesseract-ocr
     tesseract-ocr-ita
+    tesseract-ocr-eng
+    tesseract-ocr-fra
+    tesseract-ocr-lat
+    tesseract-ocr-deu
+    tesseract-ocr-spa
 )
 
 if command -v apt-get &> /dev/null; then
@@ -194,6 +237,18 @@ else
     echo "⚠️ Alcune librerie potrebbero richiedere l'installazione dei pacchetti apt indicati sopra."
 fi
 
+# Autodiagnostica: i dizionari servono per leggere bene le foto.
+# Se manca l'italiano il programma funziona lo stesso, ma lo dice chiaramente.
+LINGUE_OCR=$("$DIR/venv/bin/python" -c "import pytesseract; print(' '.join(sorted(pytesseract.get_languages(config=''))))" 2>/dev/null || echo "")
+if echo "$LINGUE_OCR" | grep -qw "ita"; then
+    echo "✅ Dizionario italiano per la lettura delle foto presente."
+    echo "   Lingue disponibili: $LINGUE_OCR"
+else
+    echo "ℹ️  Il dizionario italiano per la lettura delle foto non è disponibile."
+    echo "   Il programma funziona lo stesso: potrai correggere il testo a mano."
+    echo "   Per installarlo, esegui: sudo apt install tesseract-ocr-ita"
+fi
+
 # 4. Registrazione lanciatori desktop
 echo ""
 echo "🖥️  4. Registrazione nel menu di sistema Debian e sulla Scrivania..."
@@ -205,10 +260,16 @@ elif [ -d "$HOME/Desktop" ]; then
     echo "   -> Registrato in: ~/Desktop/memorie-di-scena.desktop"
 fi
 
+# 4b. Controllo settimanale degli aggiornamenti (timer dell'utente)
+installa_timer_aggiornamenti
+if systemctl --user list-timers memorie-aggiornamenti.timer &> /dev/null; then
+    echo "   -> Controllo aggiornamenti settimanale attivo."
+fi
+
 # 5. Permessi
 echo ""
 echo "🔒 5. Impostazione permessi di esecuzione..."
-chmod +x "$DIR/installa.sh" "$DIR/avvia.sh"
+chmod +x "$DIR/installa.sh" "$DIR/avvia.sh" "$DIR/aggiorna.sh"
 echo "✅ Script resi eseguibili."
 
 # 6. Conclusione e primo avvio

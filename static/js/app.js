@@ -3,6 +3,26 @@
  * Archivio Teatrale e Collezione Personale
  * Gestione finestre modali, filtri in tempo reale, taccuino ricordi e acquisizione guidata OCR.
  * Nessuna dipendenza esterna, compatibile con tutti i browser Debian/Ubuntu.
+ *
+ * MAPPA DELLE SEZIONI (per chi modifica)
+ * --------------------------------------
+ *   Inizializzazione (DOMContentLoaded)  → ESC, overlay, ricerca live, drag&drop, conferme
+ *   Utility                              → escapeHtml, csrfToken, urlSicuro
+ *   Evidenziazione                       → senzaAccenti, regexAccenti, evidenzia
+ *   Modali elementi                      → apriModalNuovo, apriModalModifica, apriModalPrestito...
+ *   Ricerca per citazione                → eseguiRicercaCitazione (/api/ricerca_citazione)
+ *   Diario dei Pensieri                  → caricaDiario, salvaNuovoPensiero, cestino, cronologia
+ *   OCR                                  → gestisciCaricamentoFoto (/ocr_upload)
+ *   Arresto programma                    → riponiTaccuino (/api/chiudi)
+ *
+ * REGOLE DI SICUREZZA
+ * -------------------
+ * - Ogni testo proveniente dal server va passato in `escapeHtml()` prima di
+ *   finire in `innerHTML`; `evidenzia()` scappa già il testo e aggiunge <mark>.
+ * - Ogni URL va passato in `urlSicuro()`: blocca javascript:, data: e i
+ *   protocolli relativi.
+ * - Tutte le POST devono inviare il token CSRF (campo `csrf_token` nel corpo
+ *   o header `X-CSRF-Token`), altrimenti il server risponde 400.
  */
 
 // Stato filtro tipo corrente
@@ -56,6 +76,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Conferma sicura per i form che usano l'attributo data-conferma (evita
+  // l'iniezione di dati utente dentro gli attributi onsubmit inline).
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    if (!form || !form.getAttribute) return;
+    const messaggio = form.getAttribute('data-conferma');
+    if (messaggio && !window.confirm(messaggio)) {
+      e.preventDefault();
+    }
+  });
 });
 
 // -----------------------------------------------------------------------------
@@ -76,6 +107,56 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
+}
+
+function urlSicuro(url) {
+  if (!url) return '#';
+  const u = String(url).trim();
+  // Consenti solo URL http/https o percorsi locali (es. /static/...): blocca
+  // schemi pericolosi come javascript:, data:, vbscript: e i protocolli relativi.
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith('/') && !u.startsWith('//')) return u;
+  return '#';
+}
+
+// -----------------------------------------------------------------------------
+// EVIDENZIAZIONE DELLA FRASE TROVATA (insensibile ad accenti e maiuscole)
+// -----------------------------------------------------------------------------
+function senzaAccenti(s) {
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function regexAccenti(parola) {
+  // Trasforma ogni lettera in una classe che include anche le varianti accentate:
+  // così «perche» evidenzia anche «perché», aiutando chi cerca una battuta a memoria.
+  const mappa = {
+    a: '[aàáâäãå]', e: '[eèéêë]', i: '[iìíîï]', o: '[oòóôö]', u: '[uùúûü]', c: '[cç]'
+  };
+  let pattern = '';
+  for (const ch of senzaAccenti(parola)) {
+    const low = ch.toLowerCase();
+    pattern += mappa[low] || ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  return pattern;
+}
+
+function evidenzia(testo, frase) {
+  if (!testo) return '';
+  const sicuro = escapeHtml(testo);
+  const parole = String(frase)
+    .split(/\s+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2)
+    .sort((a, b) => b.length - a.length);
+  if (!parole.length) return sicuro;
+  // Un'unica espressione (niente annidamenti di <mark>) su testo già ripulito da XSS.
+  const re = new RegExp('(' + parole.map(regexAccenti).join('|') + ')', 'gi');
+  return sicuro.replace(re, '<mark>$1</mark>');
 }
 
 function impostaCollocazione(inputId, valore) {
@@ -133,8 +214,10 @@ function aggiornaCampiTipoNuovo() {
 // MODALE: REGISTRA PRESTITO
 // -----------------------------------------------------------------------------
 
-function apriModalPrestito(elemId, titolo) {
+function apriModalPrestito(elemId) {
   chiudiModali();
+  const card = document.querySelector('.libro-card[data-id="' + elemId + '"]');
+  const titolo = card ? card.dataset.titolo : '';
   const idInput = document.getElementById('prestito_elemento_id');
   const titoloMostra = document.getElementById('prestito_titolo_mostra');
   const personaInput = document.getElementById('prestito_persona');
@@ -167,6 +250,12 @@ function apriModalModifica(elemId) {
         alert(dati.errore);
         return;
       }
+
+      // Azzera i campi del form: senza reset un valore rimasto da una scheda
+      // precedente (es. regista, formato) potrebbe essere rispedito al server
+      // e contaminare i dati dell'elemento aperto.
+      const formModifica = document.getElementById('formModifica');
+      if (formModifica) formModifica.reset();
 
       document.getElementById('formModifica').action = '/api/elementi/' + elemId + '/modifica';
       document.getElementById('formAggiornaCopertina').action = '/api/elementi/' + elemId + '/aggiorna_copertina';
@@ -231,6 +320,7 @@ function apriModalModifica(elemId) {
             <div class="appunto-meta">
               <span>📅 Annotato il ${escapeHtml(appunto.data_creazione)}</span>
               <form action="/api/appunti/${appunto.id}/elimina" method="POST" style="margin:0;" onsubmit="return confirm('Vuoi rimuovere questo appunto dal taccuino?');">
+                <input type="hidden" name="csrf_token" value="${csrfToken()}">
                 <button type="submit" class="btn-elimina-appunto">🗑️ Rimuovi</button>
               </form>
             </div>
@@ -276,8 +366,10 @@ function apriModalModifica(elemId) {
 // MODALE: CONFERMA ELIMINAZIONE
 // -----------------------------------------------------------------------------
 
-function confermaElimina(elemId, titolo) {
+function confermaElimina(elemId) {
   chiudiModali();
+  const card = document.querySelector('.libro-card[data-id="' + elemId + '"]');
+  const titolo = card ? card.dataset.titolo : '';
   const form = document.getElementById('formElimina');
   const titoloMostra = document.getElementById('elimina_titolo_mostra');
   if (form) form.action = '/api/elementi/' + elemId + '/elimina';
@@ -368,6 +460,7 @@ function gestisciCaricamentoFoto(files) {
 
   const formData = new FormData();
   formData.append('foto', file);
+  formData.append('csrf_token', csrfToken());
 
   fetch('/ocr_upload', {
     method: 'POST',
@@ -401,6 +494,21 @@ function gestisciCaricamentoFoto(files) {
       if (dati.linee && dati.linee.length > 0) {
         if (sezRighe) sezRighe.style.display = 'block';
         if (conteggio) conteggio.textContent = dati.linee.length + ' righe trovate';
+
+        // Indicazione della qualità di lettura: aiuta a capire se rifare la foto.
+        const avvisoQualita = document.getElementById('avvisoQualitaOcr');
+        if (avvisoQualita) {
+          if (dati.qualita === 'media') {
+            avvisoQualita.textContent = '👍 Lettura discreta: controlla le righe e correggi se qualcosa non torna.';
+            avvisoQualita.style.display = 'block';
+          } else if (dati.qualita === 'bassa') {
+            avvisoQualita.textContent = '💡 La foto è poco nitida. Per un risultato migliore fotografa il frontespizio, con buona luce e senza ombre.';
+            avvisoQualita.style.display = 'block';
+          } else {
+            avvisoQualita.textContent = '✅ Lettura nitida: il testo è stato riconosciuto con sicurezza.';
+            avvisoQualita.style.display = 'block';
+          }
+        }
 
         dati.linee.forEach((linea, index) => {
           const rowDiv = document.createElement('div');
@@ -547,7 +655,7 @@ function eseguiChiusuraApp() {
 
   fetch('/api/chiudi', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() }
   }).then(() => {
     setTimeout(() => {
       window.close();
@@ -618,7 +726,7 @@ function eseguiRicercaCitazione() {
   fetch('/api/ricerca_citazione', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frase: frase })
+    body: JSON.stringify({ frase: frase, csrf_token: csrfToken() })
   })
   .then(res => res.json())
   .then(dati => {
@@ -648,7 +756,7 @@ function eseguiRicercaCitazione() {
             snippetHtml = `
               <div class="citazione-snippet">
                 <strong>📝 Frammento di testo trovato:</strong><br>
-                <em>"${escapeHtml(r.snippet)}"</em>
+                <em>"${evidenzia(r.snippet, frase)}"</em>
               </div>
             `;
           }
@@ -658,7 +766,7 @@ function eseguiRicercaCitazione() {
             const parti = [];
             if (r.editore) parti.push('Editore: ' + escapeHtml(r.editore));
             if (r.anno) parti.push('Anno: ' + escapeHtml(r.anno));
-            if (r.pagine) parti.push(r.pagine + ' pagine');
+            if (r.pagine) parti.push(escapeHtml(r.pagine) + ' pagine');
             dettagliHtml = `<div class="citazione-dettagli">${parti.join(' • ')}</div>`;
           }
           
@@ -671,10 +779,13 @@ function eseguiRicercaCitazione() {
             linkHtml = `<button type="button" class="citazione-link in-casa" onclick="chiudiModali(); apriModalModifica('${r.elemento_id}')">🏠 Apri Scheda & Ricordi nella tua Collezione →</button>`;
           } else {
             if (r.link_info) {
-              linkHtml = `<a href="${escapeHtml(r.link_info)}" target="_blank" rel="noopener noreferrer" class="citazione-link">📖 Vedi scheda completa →</a>`;
+              // urlSicuro(): accetta solo http/https o percorsi locali e blocca
+              // schemi come javascript:. escapeHtml(): neutralizza le virgolette
+              // nel contesto dell'attributo href.
+              linkHtml = `<a href="${escapeHtml(urlSicuro(r.link_info))}" target="_blank" rel="noopener noreferrer" class="citazione-link">📖 Vedi scheda completa →</a>`;
             }
             if (r.anteprima_link) {
-              linkHtml += ` <a href="${escapeHtml(r.anteprima_link)}" target="_blank" rel="noopener noreferrer" class="citazione-link anteprima">👁️ Anteprima testo</a>`;
+              linkHtml += ` <a href="${escapeHtml(urlSicuro(r.anteprima_link))}" target="_blank" rel="noopener noreferrer" class="citazione-link anteprima">👁️ Anteprima testo</a>`;
             }
           }
           
@@ -684,14 +795,14 @@ function eseguiRicercaCitazione() {
             <div class="citazione-card-body">
               <div class="citazione-cover-box">
                 ${r.copertina_url 
-                  ? `<img src="${escapeHtml(r.copertina_url)}" alt="Copertina" class="citazione-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  ? `<img src="${escapeHtml(urlSicuro(r.copertina_url))}" alt="Copertina" class="citazione-cover-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                      <div class="citazione-cover-placeholder" style="display:none;">${iconaPlaceholder}</div>`
                   : `<div class="citazione-cover-placeholder">${iconaPlaceholder}</div>`
                 }
               </div>
               <div class="citazione-card-content">
                 <div class="citazione-fonte-badge">${r.fonte_icona || '📚'} ${escapeHtml(r.fonte || 'Database')}</div>
-                <h4 class="citazione-titolo-libro">${escapeHtml(r.titolo)}</h4>
+                <h4 class="citazione-titolo-libro">${evidenzia(r.titolo, frase)}</h4>
                 <div class="citazione-autore-libro">di ${escapeHtml(r.autore)}</div>
                 ${dettagliHtml}
                 ${snippetHtml}
@@ -980,7 +1091,8 @@ function salvaNuovoPensiero(event) {
   const payload = {
     titolo: titoloInput ? titoloInput.value.trim() : '',
     testo: testo,
-    fonte_riferimento: fonteInput ? fonteInput.value.trim() : ''
+    fonte_riferimento: fonteInput ? fonteInput.value.trim() : '',
+    csrf_token: csrfToken()
   };
 
   fetch('/api/diario/nuovo', {
@@ -1076,7 +1188,8 @@ function inviaModificaPensiero(event) {
   const payload = {
     titolo: titoloInput ? titoloInput.value.trim() : '',
     testo: testo,
-    fonte_riferimento: fonteInput ? fonteInput.value.trim() : ''
+    fonte_riferimento: fonteInput ? fonteInput.value.trim() : '',
+    csrf_token: csrfToken()
   };
 
   fetch(`/api/diario/${id}/modifica`, {
@@ -1205,7 +1318,11 @@ function eseguiCestinaPensiero() {
     btn.textContent = '⏳ Spostamento...';
   }
 
-  fetch(`/api/diario/${id}/cestina`, { method: 'POST' })
+  fetch(`/api/diario/${id}/cestina`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrf_token: csrfToken() })
+  })
     .then(res => res.json())
     .then(dati => {
       if (btn) btn.textContent = '🗑️ SÌ, SPOSTA NEL CESTINO';
@@ -1297,7 +1414,11 @@ function apriModalCestinoDiario() {
  * Ripristina un appunto dal Cestino al Diario con 1 solo clic
  */
 function ripristinaPensiero(id) {
-  fetch(`/api/diario/${id}/ripristina`, { method: 'POST' })
+  fetch(`/api/diario/${id}/ripristina`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrf_token: csrfToken() })
+  })
     .then(res => res.json())
     .then(dati => {
       if (dati.success) {
@@ -1321,7 +1442,11 @@ function confermaSvuotaCestino() {
     return;
   }
 
-  fetch('/api/diario/svuota_cestino', { method: 'POST' })
+  fetch('/api/diario/svuota_cestino', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrf_token: csrfToken() })
+  })
     .then(res => res.json())
     .then(dati => {
       if (dati.success) {
@@ -1353,3 +1478,118 @@ function apriPensieroDalDiario(id) {
     }, 150);
   });
 }
+
+// =============================================================================
+// AGGIORNAMENTI AUTOMATICI (avviso + 1 clic)
+// -----------------------------------------------------------------------------
+// Il server espone /api/aggiornamenti con l'esito dell'ultimo controllo (in
+// cache per 12 ore). Qui NON si aggiorna nulla da soli: si mostra un avviso.
+// Il clic su «Aggiorna ora» avvia aggiorna.sh, che prima salva una copia di
+// tutti i dati; la pagina attende il riavvio del server e si ricarica.
+// =============================================================================
+
+const CHIAVE_AGGIORNAMENTO_RIMANDATO = 'memorie_aggiornamento_rimandato';
+
+function controllaAggiornamenti() {
+  const banner = document.getElementById('bannerAggiornamento');
+  if (!banner) return; // pagina senza avviso (es. acquisizione OCR)
+
+  fetch('/api/aggiornamenti')
+    .then((res) => res.json())
+    .then((dati) => {
+      if (!dati || !dati.disponibile || dati.applicazione_disattivata) return;
+      // «Più tardi» vale per la sessione corrente, per non insistere.
+      if (sessionStorage.getItem(CHIAVE_AGGIORNAMENTO_RIMANDATO) === String(dati.versione_remota)) return;
+
+      const etichetta = document.getElementById('aggiornamentoVersione');
+      if (etichetta) etichetta.textContent = dati.versione_remota || '';
+      banner.hidden = false;
+
+      const btnOra = document.getElementById('btnAggiornaOra');
+      const btnDopo = document.getElementById('btnAggiornaDopo');
+      if (btnOra) {
+        btnOra.onclick = () => applicaAggiornamento(dati.versione_remota);
+      }
+      if (btnDopo) {
+        btnDopo.onclick = () => {
+          sessionStorage.setItem(CHIAVE_AGGIORNAMENTO_RIMANDATO, String(dati.versione_remota));
+          banner.hidden = true;
+        };
+      }
+    })
+    .catch(() => {
+      // Offline o controllo non disponibile: nessun avviso, il programma resta usabile.
+    });
+}
+
+function applicaAggiornamento(versione) {
+  const conferma = confirm(
+    `Vuoi aggiornare Memorie di Scena alla versione ${versione || 'più recente'}?\n\n` +
+    'Prima dell\'aggiornamento viene salvata automaticamente una copia di tutti i tuoi dati.\n' +
+    'Il programma si chiuderà e si riaprirà da solo: non serve fare altro.'
+  );
+  if (!conferma) return;
+
+  const velo = document.getElementById('veloAggiornamento');
+  const testo = document.getElementById('testoAggiornamento');
+  if (velo) velo.hidden = false;
+  if (testo) testo.textContent = 'Preparazione dell\'aggiornamento...';
+
+  fetch('/api/aggiornamenti/applica', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ csrf_token: csrfToken() })
+  })
+    .then((res) => res.json().then((dati) => ({ ok: res.ok, dati: dati })))
+    .then((esito) => {
+      if (!esito.ok || !esito.dati.success) {
+        if (velo) velo.hidden = true;
+        alert(esito.dati.errore || 'Non è stato possibile avviare l\'aggiornamento.');
+        return;
+      }
+      attendiRiavvio(Date.now());
+    })
+    .catch(() => {
+      if (velo) velo.hidden = true;
+      alert('Errore di connessione: l\'aggiornamento non è stato avviato.');
+    });
+}
+
+function attendiRiavvio(inizio) {
+  const testo = document.getElementById('testoAggiornamento');
+  const LIMITE_MS = 5 * 60 * 1000;
+
+  if (Date.now() - inizio > LIMITE_MS) {
+    if (testo) {
+      testo.textContent = 'L\'aggiornamento sta impiegando più del previsto. Riapri il programma tra poco.';
+    }
+    return;
+  }
+
+  fetch('/api/aggiornamenti/stato', { cache: 'no-store' })
+    .then((res) => res.json())
+    .then((stato) => {
+      if (stato.stato === 'ok') {
+        if (testo) testo.textContent = 'Aggiornamento completato! Ricarico il programma...';
+        setTimeout(() => window.location.reload(), 1200);
+        return;
+      }
+      if (stato.stato === 'errore') {
+        const velo = document.getElementById('veloAggiornamento');
+        if (velo) velo.hidden = true;
+        alert(stato.messaggio || 'L\'aggiornamento non è riuscito. I tuoi dati sono al sicuro.');
+        return;
+      }
+      if (stato.stato === 'in_corso' && testo) {
+        testo.textContent = stato.messaggio || 'Aggiornamento in corso...';
+      }
+      setTimeout(() => attendiRiavvio(inizio), 3000);
+    })
+    .catch(() => {
+      // Il server è spento perché si sta aggiornando: è normale.
+      if (testo) testo.textContent = 'Il programma si sta riavviando con la nuova versione...';
+      setTimeout(() => attendiRiavvio(inizio), 3000);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', controllaAggiornamenti);

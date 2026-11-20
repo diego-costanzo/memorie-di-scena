@@ -1,10 +1,31 @@
 <!DOCTYPE html>
+<!--
+  PAGINA INIZIALE — Memorie di Scena
+  ==================================
+  Contiene tre registri nella stessa pagina:
+    1. testata con gli strumenti (Inventario CSV, Copia di sicurezza, Esci);
+    2. prestiti attivi (con evidenza rossa se in ritardo);
+    3. Schema delle Opere + Diario dei Pensieri (schede gestite da JS).
+
+  REGOLE PER CHI MODIFICA
+  -----------------------
+  - Ogni <form method="POST"> DEVE contenere
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    altrimenti il server risponde 400 (protezione CSRF, vedi archivio/security.py).
+  - I valori dinamici nei template usano l'escape automatico di Jinja. Non usare
+    `|safe` su dati inseriti dall'utente.
+  - Gli attributi `onclick` qui presenti richiamano funzioni statiche di
+    static/js/app.js (es. apriModalNuovo). Per dati dinamici il JS crea gli
+    elementi via innerHTML con escapeHtml(), non con onclick inline.
+  - Le modali con id "modal..." vengono aperte/chiuse da app.js: chiudiModali().
+-->
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.7">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.8">
 </head>
 <body>
 
@@ -18,9 +39,22 @@
         <span class="segnalibro-nastro"></span>
         <span class="taccuino-tag-testo">📖 REGISTRO GENERALE &bull; ARCHIVIO TEATRALE E COLLEZIONE</span>
       </div>
-      <button type="button" class="btn-riponi-taccuino" onclick="apriModalChiudi()" title="Chiudi l'archivio e riponi il taccuino">
-        <span>📕 Riponi il Taccuino (Esci)</span>
-      </button>
+      <div class="taccuino-azioni">
+        <a href="{{ url_for('esporta_inventario') }}" class="btn-strumento"
+           title="Scarica un foglio con tutti i volumi, da conservare o stampare">
+          <span>📄 Inventario</span>
+        </a>
+        <form action="{{ url_for('scarica_backup') }}" method="POST" class="form-strumento"
+              data-conferma="Vuoi salvare ora una copia di sicurezza del tuo archivio?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn-strumento" title="Salva una copia del tuo archivio sul computer">
+            <span>💾 Copia di sicurezza</span>
+          </button>
+        </form>
+        <button type="button" class="btn-riponi-taccuino" onclick="apriModalChiudi()" title="Chiudi l'archivio e riponi il taccuino">
+          <span>📕 Riponi il Taccuino (Esci)</span>
+        </button>
+      </div>
     </div>
 
     <!-- ====================================================================
@@ -76,6 +110,32 @@
     {% endwith %}
 
     <!-- ====================================================================
+         AVVISO DI AGGIORNAMENTO
+         Nascosto per impostazione predefinita: app.js lo mostra solo se
+         GitHub segnala una versione più recente. L'aggiornamento parte
+         soltanto dopo il clic su «Aggiorna ora» (vedi aggiorna.sh).
+         ==================================================================== -->
+    <section class="aggiornamento-banner" id="bannerAggiornamento" hidden>
+      <div class="aggiornamento-testo">
+        <strong>🎁 C'è una nuova versione di Memorie di Scena (<span id="aggiornamentoVersione"></span>)</strong>
+        <p>Prima di aggiornare salviamo automaticamente una copia di tutti i tuoi dati. Se qualcosa non va, il programma torna come prima.</p>
+      </div>
+      <div class="aggiornamento-azioni">
+        <button type="button" class="btn-aggiorna-ora" id="btnAggiornaOra">⬆️ Aggiorna ora</button>
+        <button type="button" class="btn-aggiorna-dopo" id="btnAggiornaDopo">Più tardi</button>
+      </div>
+    </section>
+
+    <!-- Velo mostrato durante l'aggiornamento: il server si spegne e si riavvia -->
+    <div class="aggiornamento-velo" id="veloAggiornamento" hidden>
+      <div class="aggiornamento-riquadro" role="status" aria-live="polite">
+        <div class="aggiornamento-titolo">⏳ Aggiornamento in corso...</div>
+        <p id="testoAggiornamento">Stiamo salvando i tuoi dati e installando la nuova versione.</p>
+        <p><strong>Non chiudere il computer.</strong> Il programma si riaprirà da solo.</p>
+      </div>
+    </div>
+
+    <!-- ====================================================================
          SEZIONE IN PRIMO PIANO: CHI HA I MIEI LIBRI?
          (Visibile se ci sono volumi attualmente prestati)
          ==================================================================== -->
@@ -90,7 +150,7 @@
 
       <div class="prestiti-grid">
         {% for p in prestiti_attivi %}
-        <div class="prestito-row-card">
+        <div class="prestito-row-card {% if p.giorni_ritardo %}in-ritardo{% endif %}">
           <img src="{{ p.copertina_path }}" alt="Copertina" class="prestito-thumb" onerror="this.src='/static/covers/default_{{ 'copione' if p.tipo == 'Copione' else ('musica' if p.tipo == 'CD / Vinile' else 'libro') }}.svg'">
           <div class="prestito-info">
             <div class="prestito-titolo">{{ p.titolo }}</div>
@@ -99,9 +159,16 @@
               👤 In prestito a: <strong>{{ p.nome_persona }}</strong><br>
               <small>📅 Dal: {{ p.data_prestito }}{% if p.data_rientro_prevista %} &bull; Previsto rientro: {{ p.data_rientro_prevista }}{% endif %}</small>
             </div>
+
+            {% if p.giorni_ritardo %}
+            <div class="badge-ritardo">
+              ⏰ In ritardo di {{ p.giorni_ritardo }} giorn{{ 'o' if p.giorni_ritardo == 1 else 'i' }}: ricordati di chiederlo indietro.
+            </div>
+            {% endif %}
             
             <!-- Segna Rientrato con 1 Clic -->
-            <form action="{{ url_for('segna_rientro', prestito_id=p.prestito_id) }}" method="POST" onsubmit="return confirm('Confermi che {{ p.nome_persona }} ha restituito il volume \'{{ p.titolo }}\'?');">
+            <form action="{{ url_for('segna_rientro', prestito_id=p.prestito_id) }}" method="POST" data-conferma="Confermi che {{ p.nome_persona }} ha restituito il volume '{{ p.titolo }}'?">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="btn-rientro-rapido">
                 <span>✅ È TORNATO A CASA</span>
                 <small style="font-size: 13px; font-weight: normal;">(Segna come Rientrato)</small>
@@ -217,6 +284,7 @@
         {% for el in elementi %}
         <article class="libro-card {% if el.tipo == 'Copione' %}tipo-copione{% elif el.tipo == 'CD / Vinile' %}tipo-musica{% endif %} {% if el.in_prestito %}in-prestito{% endif %}"
                  data-id="{{ el.id }}"
+                 data-titolo="{{ el.titolo }}"
                  data-tipo="{{ el.tipo }}"
                  data-prestito="{{ '1' if el.in_prestito else '0' }}"
                  data-search="{{ (el.titolo ~ ' ' ~ (el.autore or '') ~ ' ' ~ (el.collocazione_casa or '') ~ ' ' ~ (el.note or '') ~ ' ' ~ (el.regista or '') ~ ' ' ~ (el.prima_esibizione_luogo or '') ~ ' ' ~ (el.formato or '') ~ ' ' ~ (el.etichetta_anno or '') ~ ' ' ~ (el.prestito_persona or ''))|lower }}">
@@ -324,14 +392,15 @@
           <footer class="libro-card-actions">
             {% if el.in_prestito %}
               <!-- Se è in prestito: pulsante per farlo rientrare -->
-              <form action="{{ url_for('segna_rientro', prestito_id=el.prestito_id) }}" method="POST" style="flex:1; display:flex;" onsubmit="return confirm('Confermi che \'{{ el.titolo }}\' è stato restituito?');">
+              <form action="{{ url_for('segna_rientro', prestito_id=el.prestito_id) }}" method="POST" style="flex:1; display:flex;" data-conferma="Confermi che '{{ el.titolo }}' è stato restituito?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="btn-card btn-rientro">
                   ✅ Segna Rientrato
                 </button>
               </form>
             {% else %}
               <!-- Se è a casa: pulsante per prestarlo -->
-              <button type="button" class="btn-card btn-presta" onclick="apriModalPrestito('{{ el.id }}', '{{ el.titolo|replace("'", "\\'") }}')">
+              <button type="button" class="btn-card btn-presta" onclick="apriModalPrestito('{{ el.id }}')">
                 🤝 Presta
               </button>
             {% endif %}
@@ -342,7 +411,7 @@
             </button>
 
             <!-- Pulsante Elimina -->
-            <button type="button" class="btn-card btn-elimina" onclick="confermaElimina('{{ el.id }}', '{{ el.titolo|replace("'", "\\'") }}')" title="Rimuovi dall'archivio">
+            <button type="button" class="btn-card btn-elimina" onclick="confermaElimina('{{ el.id }}')" title="Rimuovi dall'archivio">
               🗑️
             </button>
           </footer>
@@ -485,6 +554,7 @@
       </header>
 
       <form action="{{ url_for('crea_elemento') }}" method="POST" class="modal-body" id="formNuovoElemento">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
         <!-- Scelta dinamica: Libro / Copione / CD-Vinile (3 Pulsanti Giganti) -->
         <div class="tipo-selector-3">
@@ -635,6 +705,7 @@
       </header>
 
       <form action="{{ url_for('registra_prestito') }}" method="POST" class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" id="prestito_elemento_id" name="elemento_id">
 
         <div style="background: #faf4e8; border: 2px solid #dfc79b; padding: 16px; border-radius: 8px; margin-bottom: 22px;">
@@ -695,6 +766,7 @@
         
         <!-- Form Dati Principali -->
         <form id="formModifica" action="" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           
           <div class="form-group">
             <label for="mod_titolo" class="form-label">Titolo dell'Opera <span class="obbligatorio">*</span></label>
@@ -804,6 +876,7 @@
 
           <!-- Modulo per aggiungere un nuovo appunto -->
           <form id="formAggiungiRicordo" action="" method="POST" style="margin-top: 14px; border-top: 1px dashed #d6be9a; padding-top: 14px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="testo_nuovo_ricordo" class="form-label" style="font-size: 17px;">
               ✍️ Aggiungi un pensiero, una frase amata o un ricordo personale:
             </label>
@@ -822,6 +895,7 @@
               <div style="font-size: 15px; color: #6d4b2e;">Vuoi cercare di nuovo una copertina su Internet?</div>
             </div>
             <form id="formAggiornaCopertina" action="" method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="tab-btn" style="background: #eadecd;">
                 🔄 Cerca Copertina Online
               </button>
@@ -851,6 +925,7 @@
       </header>
 
       <form id="formElimina" action="" method="POST" class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <p style="font-size: 21px; margin-bottom: 20px; color: #2e160a;">
           Sei sicuro di voler rimuovere per sempre dall'archivio:
         </p>

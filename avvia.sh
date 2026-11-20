@@ -48,8 +48,16 @@ mkdir -p "$DIR/data"
 # ------------------------------------------------------------------------------
 # 2. CONTROLLO SERVER E AVVIO IN BACKGROUND (ACCELERATO)
 # ------------------------------------------------------------------------------
-if curl -s --connect-timeout 0.15 "$APP_URL" > /dev/null 2>&1; then
+# Verifichiamo l'IDENTITÀ del servizio, non solo che la porta risponda: un
+# altro programma sulla 5000 veniva in passato scambiato per l'archivio.
+if curl -s --connect-timeout 0.15 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
     echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
+elif curl -s --connect-timeout 0.15 "$APP_URL" > /dev/null 2>&1; then
+    echo "=================================================================="
+    echo "⚠️  La porta 5000 è occupata da un altro programma."
+    echo "    Chiudi quel programma oppure riavvia il computer, poi riprova."
+    echo "=================================================================="
+    exit 1
 else
     echo "🎭 Avvio rapido di Memorie di Scena in corso..."
     # Avvia in background con bytecode ottimizzato (-O / PYTHONOPTIMIZE=1) per massima reattività e leggerezza RAM
@@ -66,7 +74,7 @@ else
     TENTATIVI=0
     SERVER_PRONTO=0
     while [ "$TENTATIVI" -lt 60 ]; do
-        if curl -s --connect-timeout 0.05 "$APP_URL" > /dev/null 2>&1; then
+        if curl -s --connect-timeout 0.05 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
             SERVER_PRONTO=1
             break
         fi

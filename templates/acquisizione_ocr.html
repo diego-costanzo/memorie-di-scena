@@ -1,8 +1,28 @@
 <!DOCTYPE html>
+<!--
+  ACQUISIZIONE GUIDATA DA FOTO (OCR) — Memorie di Scena
+  =====================================================
+  Flusso:
+    1. l'utente sceglie o trascina una foto nella dropzone (#ocrDropzone);
+    2. app.js invia il file a POST /ocr_upload (con il token CSRF);
+    3. il server risponde con le righe lette e l'URL dell'anteprima;
+    4. le righe si possono copiare nei campi del modulo qui sotto;
+    5. il modulo invia i dati a POST /api/elementi e crea la scheda.
+
+  REGOLE PER CHI MODIFICA
+  -----------------------
+  - Il form #formSalvaOcr è un invio HTML classico: DEVE contenere il campo
+    nascosto `csrf_token`, altrimenti il salvataggio viene rifiutato con 400.
+  - `copertina_caricata` contiene solo il nome del file anteprima; il server
+    lo valida comunque con secure_filename (difesa dal path traversal).
+  - La pagina può essere usata anche senza Tesseract: in quel caso mostra un
+    avviso gentile e i campi restano compilabili a mano.
+-->
 <html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Acquisizione Guidata da Foto (OCR) - Memorie di Scena</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -30,6 +50,13 @@
         </p>
       </div>
     </header>
+
+    <!-- Avviso: dizionario italiano OCR non disponibile (fallback silenzioso evitato) -->
+    {% if stato_lingua and not stato_lingua.italiano %}
+    <div class="ocr-avviso-lingua">
+      ℹ️ {{ stato_lingua.messaggio }}
+    </div>
+    {% endif %}
 
     <!-- Layout a Due Colonne -->
     <div class="ocr-layout">
@@ -75,6 +102,7 @@
             <strong style="color: #3b220e; font-size: 19px;">Righe di testo individuate:</strong>
             <span id="conteggioLinee" style="font-size: 15px; color: #6d4a2b;"></span>
           </div>
+          <div id="avvisoQualitaOcr" style="display: none; background: #fdfaf2; border: 1.5px dashed #d5be9b; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 15px; color: #5a3c20; line-height: 1.5;"></div>
           <p style="font-size: 15px; color: #624328; margin-bottom: 14px; font-style: italic;">
             Puoi correggere il testo direttamente nella casella prima di cliccare su uno dei pulsanti per trasferirlo a destra:
           </p>
@@ -100,6 +128,9 @@
 
         <form action="{{ url_for('crea_elemento') }}" method="POST" id="formSalvaOcr">
           
+          <!-- Token di sicurezza: senza questo campo il server rifiuta il salvataggio. -->
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
           <!-- Percorso copertina caricata dall'OCR -->
           <input type="hidden" id="ocr_copertina_caricata" name="copertina_caricata" value="">
 
