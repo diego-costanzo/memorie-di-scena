@@ -34,26 +34,27 @@ def cerca_google_books(frase, max_risultati=5):
         resp = get_api_session().get(url, timeout=config.API_TIMEOUT)
         if resp.status_code == 200:
             dati = resp.json()
-            for item in dati.get('items', []):
-                info = item.get('volumeInfo', {})
-                ricerca_info = item.get('searchInfo', {})
-                snippet = pulisci_snippet(ricerca_info.get('textSnippet', ''))
-                immagini = info.get('imageLinks', {})
+            for item in dati.get('items') or []:
+                info = item.get('volumeInfo') or {}
+                ricerca_info = item.get('searchInfo') or {}
+                snippet = pulisci_snippet(ricerca_info.get('textSnippet') or '')
+                immagini = info.get('imageLinks') or {}
                 copertina_url = immagini.get('thumbnail', '') or immagini.get('smallThumbnail', '')
                 if copertina_url and copertina_url.startswith('http:'):
                     copertina_url = copertina_url.replace('http:', 'https:', 1)
 
+                autori = info.get('authors') or ['Autore non indicato']
                 risultati.append({
-                    'titolo': info.get('title', 'Titolo sconosciuto'),
-                    'autore': ', '.join(info.get('authors', ['Autore non indicato'])),
-                    'editore': info.get('publisher', ''),
-                    'anno': info.get('publishedDate', '')[:4] if info.get('publishedDate') else '',
+                    'titolo': info.get('title') or 'Titolo sconosciuto',
+                    'autore': ', '.join(str(a) for a in autori if a) or 'Autore non indicato',
+                    'editore': info.get('publisher') or '',
+                    'anno': (info.get('publishedDate') or '')[:4],
                     'snippet': snippet,
                     'copertina_url': copertina_url,
-                    'lingua': info.get('language', ''),
-                    'pagine': info.get('pageCount', ''),
-                    'link_info': info.get('infoLink', ''),
-                    'anteprima_link': info.get('previewLink', ''),
+                    'lingua': info.get('language') or '',
+                    'pagine': info.get('pageCount') or '',
+                    'link_info': info.get('infoLink') or '',
+                    'anteprima_link': info.get('previewLink') or '',
                     'fonte': 'Google Books',
                     'fonte_icona': '📚',
                 })
@@ -75,20 +76,23 @@ def cerca_open_library(frase, max_risultati=5):
         resp = get_api_session().get(url, timeout=config.API_TIMEOUT)
         if resp.status_code == 200:
             dati = resp.json()
-            for doc in dati.get('docs', []):
+            for doc in dati.get('docs') or []:
                 cover_id = doc.get('cover_i')
                 copertina_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else ''
-                chiave_opera = doc.get('key', '')
+                chiave_opera = doc.get('key') or ''
                 link_info = f"https://openlibrary.org{chiave_opera}" if chiave_opera else ''
+                autori = doc.get('author_name') or ['Autore non indicato']
+                editori = doc.get('publisher') or []
+                lingue = doc.get('language') or []
                 risultati.append({
-                    'titolo': doc.get('title', 'Titolo sconosciuto'),
-                    'autore': ', '.join(doc.get('author_name', ['Autore non indicato'])),
-                    'editore': ', '.join(doc.get('publisher', [])[:2]) if doc.get('publisher') else '',
-                    'anno': str(doc.get('first_publish_year', '')) if doc.get('first_publish_year') else '',
+                    'titolo': doc.get('title') or 'Titolo sconosciuto',
+                    'autore': ', '.join(str(a) for a in autori if a) or 'Autore non indicato',
+                    'editore': ', '.join(str(e) for e in editori[:2] if e),
+                    'anno': str(doc.get('first_publish_year')) if doc.get('first_publish_year') else '',
                     'snippet': '',
                     'copertina_url': copertina_url,
-                    'lingua': ', '.join(doc.get('language', [])[:3]) if doc.get('language') else '',
-                    'pagine': doc.get('number_of_pages_median', ''),
+                    'lingua': ', '.join(str(l) for l in lingue[:3] if l),
+                    'pagine': doc.get('number_of_pages_median') or '',
                     'link_info': link_info,
                     'anteprima_link': '',
                     'fonte': 'Open Library',
@@ -113,34 +117,35 @@ def cerca_internet_archive(frase, max_risultati=5):
         )
         resp = get_api_session().get(url, timeout=config.API_TIMEOUT)
         if resp.status_code == 200:
-            docs = resp.json().get('response', {}).get('docs', [])
+            docs = (resp.json().get('response') or {}).get('docs') or []
             for doc in docs:
-                identifier = doc.get('identifier', '')
-                link_info = f"https://archive.org/details/{identifier}" if identifier else ''
-                copertina_url = f"https://archive.org/services/img/{identifier}" if identifier else ''
-                desc_raw = doc.get('description', '')
+                identifier = str(doc.get('identifier') or '').strip()
+                id_enc = urllib.parse.quote(identifier, safe='') if identifier else ''
+                link_info = f"https://archive.org/details/{id_enc}" if id_enc else ''
+                copertina_url = f"https://archive.org/services/img/{id_enc}" if id_enc else ''
+                desc_raw = doc.get('description') or ''
                 if isinstance(desc_raw, list):
                     desc_raw = ' '.join(str(x) for x in desc_raw)
                 descrizione = pulisci_snippet(desc_raw)
                 if len(descrizione) > 200:
                     descrizione = descrizione[:200].rsplit(' ', 1)[0] + '…'
-                autore = doc.get('creator', 'Autore non indicato')
+                autore = doc.get('creator') or 'Autore non indicato'
                 if isinstance(autore, list):
-                    autore = ', '.join(autore[:3])
-                editore = doc.get('publisher', '')
+                    autore = ', '.join(str(a) for a in autore[:3] if a) or 'Autore non indicato'
+                editore = doc.get('publisher') or ''
                 if not isinstance(editore, str):
                     editore = ''
                 risultati.append({
-                    'titolo': doc.get('title', 'Titolo sconosciuto'),
+                    'titolo': doc.get('title') or 'Titolo sconosciuto',
                     'autore': autore,
                     'editore': editore,
-                    'anno': str(doc.get('year', '')) if doc.get('year') else '',
+                    'anno': str(doc.get('year')) if doc.get('year') else '',
                     'snippet': descrizione,
                     'copertina_url': copertina_url,
                     'lingua': 'it',
                     'pagine': '',
                     'link_info': link_info,
-                    'anteprima_link': f"https://archive.org/stream/{identifier}" if identifier else '',
+                    'anteprima_link': f"https://archive.org/stream/{id_enc}" if id_enc else '',
                     'fonte': 'Internet Archive',
                     'fonte_icona': '🗄️',
                 })
@@ -162,14 +167,16 @@ def cerca_gutenberg(frase, max_risultati=3):
         resp = get_api_session().get(url, timeout=2.0)
         if resp.status_code == 200:
             data = resp.json()
-            for b in data.get('results', [])[:max_risultati]:
-                titolo = b.get('title', 'Senza titolo')
-                authors = [a.get('name', '') for a in b.get('authors', [])]
+            for b in (data.get('results') or [])[:max_risultati]:
+                titolo = b.get('title') or 'Senza titolo'
+                authors = [a.get('name', '') for a in (b.get('authors') or []) if isinstance(a, dict) and a.get('name')]
                 autore = ', '.join(authors) if authors else 'Autore non indicato'
-                formats = b.get('formats', {})
+                formats = b.get('formats') or {}
                 copertina = formats.get('image/jpeg', '')
-                link = f"https://www.gutenberg.org/ebooks/{b.get('id')}"
+                ebook_id = b.get('id')
+                link = f"https://www.gutenberg.org/ebooks/{ebook_id}" if ebook_id else ''
                 read_link = formats.get('text/html') or formats.get('text/plain; charset=utf-8') or ''
+                lingue = b.get('languages') or ['it']
 
                 risultati.append({
                     'titolo': titolo,
@@ -178,7 +185,7 @@ def cerca_gutenberg(frase, max_risultati=3):
                     'anno': '',
                     'snippet': "Opera classica mondiale di pubblico dominio. Testo integrale scaricabile e consultabile online gratuitamente.",
                     'copertina_url': copertina,
-                    'lingua': ', '.join(b.get('languages', ['it'])),
+                    'lingua': ', '.join(str(l) for l in lingue if l) or 'it',
                     'pagine': '',
                     'link_info': link,
                     'anteprima_link': read_link,

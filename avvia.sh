@@ -50,9 +50,9 @@ mkdir -p "$DIR/data"
 # ------------------------------------------------------------------------------
 # Verifichiamo l'IDENTITÀ del servizio, non solo che la porta risponda: un
 # altro programma sulla 5000 veniva in passato scambiato per l'archivio.
-if curl -s --connect-timeout 0.15 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
+if curl -s --connect-timeout 0.15 --max-time 1 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
     echo "ℹ️  Memorie di Scena è già attivo su $APP_URL"
-elif curl -s --connect-timeout 0.15 "$APP_URL" > /dev/null 2>&1; then
+elif curl -s --connect-timeout 0.15 --max-time 1 "$APP_URL" > /dev/null 2>&1; then
     echo "=================================================================="
     echo "⚠️  La porta 5000 è occupata da un altro programma."
     echo "    Chiudi quel programma oppure riavvia il computer, poi riprova."
@@ -74,7 +74,7 @@ else
     TENTATIVI=0
     SERVER_PRONTO=0
     while [ "$TENTATIVI" -lt 60 ]; do
-        if curl -s --connect-timeout 0.05 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
+        if curl -s --connect-timeout 0.05 --max-time 1 "$APP_URL" 2>/dev/null | grep -q "Memorie di Scena"; then
             SERVER_PRONTO=1
             break
         fi

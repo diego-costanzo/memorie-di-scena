@@ -66,11 +66,13 @@ fotografie reali, non solo su immagini di test.
 """
 import difflib
 import re
+import threading
 
 from . import config
 
 # Cache dei nomi lingua disponibili: Tesseract viene interrogato una sola volta.
 _LINGUE_INSTALLATE = None
+_LINGUE_LOCK = threading.Lock()
 
 
 def get_ocr_tools():
@@ -83,6 +85,18 @@ def get_ocr_tools():
     return Image, ImageOps, filter_lanczos
 
 
+def immagine_rgb_su_bianco(img, image_cls=None):
+    """Converte in RGB appoggiando eventuali trasparenze su sfondo bianco."""
+    if image_cls is None:
+        from PIL import Image as image_cls
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        sfondo = image_cls.new("RGB", img.size, (255, 255, 255))
+        rgba = img.convert("RGBA")
+        sfondo.paste(rgba, mask=rgba.split()[3])
+        return sfondo
+    return img.convert("RGB") if img.mode != "RGB" else img
+
+
 def _lingue_installate(pytesseract):
     """
     Elenca i dizionari effettivamente presenti, in ordine di preferenza.
@@ -93,13 +107,15 @@ def _lingue_installate(pytesseract):
     """
     global _LINGUE_INSTALLATE
     if _LINGUE_INSTALLATE is None:
-        try:
-            presenti = set(pytesseract.get_languages(config=""))
-        except Exception:
-            presenti = set()
-        _LINGUE_INSTALLATE = tuple(
-            lingua for lingua in config.OCR_LINGUE_PREFERITE if lingua in presenti
-        )
+        with _LINGUE_LOCK:
+            if _LINGUE_INSTALLATE is None:
+                try:
+                    presenti = set(pytesseract.get_languages(config=""))
+                except Exception:
+                    presenti = set()
+                _LINGUE_INSTALLATE = tuple(
+                    lingua for lingua in config.OCR_LINGUE_PREFERITE if lingua in presenti
+                )
     return _LINGUE_INSTALLATE
 
 
@@ -411,15 +427,22 @@ def estrai_testo_da_immagine(img, max_lato=None):
             img = img.copy()
             img.thumbnail((max_lato, max_lato), resample)
 
+    # Le immagini con canale alfa vanno appoggiate su sfondo bianco prima di
+    # passare in scala di grigi, altrimenti le aree trasparenti diventano nere.
+    if img.mode != "L":
+        img = immagine_rgb_su_bianco(img)
+
     img, rotazione = _raddrizza(img, pytesseract)
     grigio = _ingrandisci(img.convert("L"), resample)
 
     lingua_principale, lingua_estesa = _combo_lingue(pytesseract)
-    migliore = {"righe": [], "punteggio": 0.0, "nome": ""}
+    migliore = {"righe": [], "punteggio": 0.0, "nome": "", "variante": None, "psm": 3}
     passate = []
-    accumulo = []
+    prima_variante = None
 
     for nome, variante, psm in _varianti_lettura(grigio, ImageFilter, ImageChops, ImageOps):
+        if prima_variante is None:
+            prima_variante = (variante, psm)
         passate.append(nome)
         try:
             lette = _leggi_righe(variante, psm, pytesseract, lingua_principale)
@@ -434,10 +457,13 @@ def estrai_testo_da_immagine(img, max_lato=None):
 
         punteggio = _punteggio(righe_ok)
         if punteggio > migliore["punteggio"]:
-            migliore = {"righe": righe_ok, "punteggio": punteggio, "nome": nome}
-
-        # Accumulo per recuperare righe lette bene solo da una variante diversa.
-        accumulo.extend(righe_ok)
+            migliore = {
+                "righe": righe_ok,
+                "punteggio": punteggio,
+                "nome": nome,
+                "variante": variante,
+                "psm": psm,
+            }
 
         # Arresto anticipato: qualità già ottima e testo sufficiente, non serve
         # altro tempo di calcolo. Con una sola riga si richiede una confidenza
@@ -448,21 +474,30 @@ def estrai_testo_da_immagine(img, max_lato=None):
         if migliore["punteggio"] >= config.OCR_GOOD_CONF and righe_buone:
             break
 
-    # Seconda possibilità multilingue: una sola passata aggiuntiva, solo se la
-    # lettura italiana ha deluso e ci sono altre lingue installate.
+    # Seconda possibilità multilingue: una sola passata aggiuntiva sulla variante
+    # migliore (o sulla prima se nessuna ha trovato testo), solo se la lettura
+    # italiana ha deluso e ci sono altre lingue installate.
     lingue_usate = lingua_principale
     if lingua_estesa and lingua_estesa != lingua_principale and _conf_media(migliore["righe"]) < config.OCR_RETRY_CONF:
-        nome, variante, psm = next(iter(_varianti_lettura(grigio, ImageFilter, ImageChops, ImageOps)))
+        variante_retry = migliore["variante"] if migliore["variante"] is not None else prima_variante[0]
+        psm_retry = migliore["psm"] if migliore["variante"] is not None else prima_variante[1]
         try:
-            lette = _leggi_righe(variante, psm, pytesseract, lingua=lingua_estesa)
+            lette = _leggi_righe(variante_retry, psm_retry, pytesseract, lingua=lingua_estesa)
             righe_ok = []
             for riga in lette:
                 testo = _pulisci_riga(riga["testo"])
                 if _riga_utile(testo, riga["conf"]):
                     righe_ok.append({"testo": testo, "conf": riga["conf"]})
             passate.append("multilingue")
-            if _punteggio(righe_ok) > migliore["punteggio"]:
-                migliore = {"righe": righe_ok, "punteggio": _punteggio(righe_ok), "nome": "multilingue"}
+            punteggio_multi = _punteggio(righe_ok)
+            if punteggio_multi > migliore["punteggio"]:
+                migliore = {
+                    "righe": righe_ok,
+                    "punteggio": punteggio_multi,
+                    "nome": "multilingue",
+                    "variante": variante_retry,
+                    "psm": psm_retry,
+                }
                 lingue_usate = lingua_estesa
         except Exception:
             pass
@@ -471,15 +506,7 @@ def estrai_testo_da_immagine(img, max_lato=None):
     # di tutte. Mescolare le letture di varianti diverse produce doppioni e righe
     # sbagliate (es. «Umberto Eco» e «Umberto Eta.»): meglio poche righe giuste,
     # che l'utente può correggere, invece di rumore da districare.
-    # L'unione dei candidati si usa solo se nessuna variante ha superato il filtro.
-    if migliore["righe"]:
-        finali = migliore["righe"]
-    else:
-        finali = []
-        for riga in sorted(accumulo, key=lambda r: r["conf"], reverse=True):
-            if any(_simili(riga["testo"], altra["testo"]) for altra in finali):
-                continue
-            finali.append(riga)
+    finali = migliore["righe"]
 
     linee = [r["testo"] for r in finali]
     confidenza = int(round(sum(r["conf"] for r in finali) / len(finali))) if finali else 0

@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Acquisizione Guidata da Foto (OCR) - Memorie di Scena</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.9">
 </head>
 <body>
 
@@ -276,7 +276,7 @@
   </div>
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.9"></script>
 </body>
 </html>
 

@@ -13,10 +13,26 @@ Tutte le connessioni passano da qui, garantendo:
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from . import config
 from .utils import normalizza_testo
+
+
+def pulisci_cestino_scaduto(cursor):
+    """
+    Elimina definitivamente dal Diario i fogli cestinati da oltre 30 giorni.
+    Usa sempre la data locale per restare coerente con `data_eliminazione` e
+    con il calcolo dei giorni rimanenti mostrato nell'interfaccia.
+    """
+    limite = (date.today() - timedelta(days=30)).isoformat()
+    cursor.execute("""
+        DELETE FROM diario_pensieri
+        WHERE eliminato = 1
+          AND data_eliminazione IS NOT NULL
+          AND length(data_eliminazione) >= 10
+          AND substr(data_eliminazione, 1, 10) <= ?
+    """, (limite,))
 
 
 @contextmanager
@@ -47,7 +63,7 @@ def init_db():
     sono limitate alla migrazione storica del CHECK su `elementi` (descritta
     nel blocco seguente).
     """
-    setup_conn = sqlite3.connect(config.DB_PATH)
+    setup_conn = sqlite3.connect(config.DB_PATH, timeout=15.0)
     try:
         # Ottimizzazioni persistenti nel file SQLite (attive per sempre su tutte le sessioni)
         setup_conn.execute("PRAGMA journal_mode = WAL;")
@@ -56,6 +72,10 @@ def init_db():
         setup_conn.commit()
     finally:
         setup_conn.close()
+    try:
+        os.chmod(config.DB_PATH, 0o600)
+    except OSError:
+        pass
 
     with get_db() as conn:
         cursor = conn.cursor()
@@ -212,12 +232,7 @@ def init_db():
 
         # Pulizia automatica Cestino a 30 giorni
         try:
-            cursor.execute("""
-                DELETE FROM diario_pensieri
-                WHERE eliminato = 1
-                  AND data_eliminazione IS NOT NULL
-                  AND date(substr(data_eliminazione, 1, 10)) <= date('now', '-30 days');
-            """)
+            pulisci_cestino_scaduto(cursor)
         except Exception as e:
             print(f"[Diario] Pulizia 30gg: {e}")
 
@@ -272,6 +287,11 @@ def backup_database():
             except OSError:
                 pass
             return None
+
+        try:
+            os.chmod(destinazione, 0o600)
+        except OSError:
+            pass
 
         # Rotazione: conserva solo gli ultimi BACKUP_KEEP backup
         backups = sorted(

@@ -52,6 +52,29 @@ def _fallback_per_tipo(tipo):
     return "/static/covers/default_libro.svg"
 
 
+def _percorso_copertina_locale(copertina_path):
+    """Restituisce il path su disco se è una copertina locale non-SVG in COVERS_DIR."""
+    if not copertina_path or not copertina_path.startswith("/static/covers/") or copertina_path.endswith(".svg"):
+        return None
+    nome_sicuro = secure_filename(os.path.basename(copertina_path))
+    if not nome_sicuro:
+        return None
+    return os.path.join(config.COVERS_DIR, nome_sicuro)
+
+
+def _rimuovi_copertina_se_orfana(cursor, copertina_path):
+    """Elimina il file copertina locale solo se nessun altro elemento lo usa."""
+    percorso_disco = _percorso_copertina_locale(copertina_path)
+    if not percorso_disco or not os.path.isfile(percorso_disco):
+        return
+    cursor.execute("SELECT 1 FROM elementi WHERE copertina_path = ? LIMIT 1", (copertina_path,))
+    if cursor.fetchone() is None:
+        try:
+            os.remove(percorso_disco)
+        except OSError:
+            pass
+
+
 def _valore_csv(valore):
     """
     Prepara un valore per il foglio CSV neutralizzando le formule.
@@ -95,11 +118,12 @@ def register(app):
         data_inserimento = date.today().strftime("%d/%m/%Y")
         fallback_path = _fallback_per_tipo(tipo)
 
-        # Validazione sicura contro Path Traversal sul percorso copertina
+        # Validazione sicura contro Path Traversal sul percorso copertina:
+        # controlla che il nome non sia vuoto (es. '.', '..', '???') e sia un file reale.
         percorso_copertina = fallback_path
         if copertina_caricata:
             nome_file_sicuro = secure_filename(os.path.basename(copertina_caricata))
-            if os.path.exists(os.path.join(config.COVERS_DIR, nome_file_sicuro)):
+            if nome_file_sicuro and os.path.isfile(os.path.join(config.COVERS_DIR, nome_file_sicuro)):
                 percorso_copertina = f"/static/covers/{nome_file_sicuro}"
 
         with get_db() as conn:
@@ -182,7 +206,6 @@ def register(app):
 
     @app.route("/api/elementi/<int:elem_id>/elimina", methods=["POST"])
     def elimina_elemento(elem_id):
-        copertina = None
         titolo = ""
         with get_db() as conn:
             cursor = conn.cursor()
@@ -192,16 +215,7 @@ def register(app):
                 titolo = row['titolo']
                 copertina = row['copertina_path']
                 cursor.execute("DELETE FROM elementi WHERE id = ?", (elem_id,))
-
-        # Rimuovi file locale in sicurezza se non SVG
-        if copertina and not copertina.endswith(".svg"):
-            safe_cover_name = secure_filename(os.path.basename(copertina))
-            local_cover = os.path.join(config.COVERS_DIR, safe_cover_name)
-            if os.path.exists(local_cover):
-                try:
-                    os.remove(local_cover)
-                except Exception:
-                    pass
+                _rimuovi_copertina_se_orfana(cursor, copertina)
 
         if titolo:
             flash(f"'{titolo}' è stato rimosso dall'archivio.", "info")
@@ -215,14 +229,33 @@ def register(app):
     def aggiorna_copertina(elem_id):
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT titolo, autore, tipo FROM elementi WHERE id = ?", (elem_id,))
+            cursor.execute("SELECT titolo, autore, tipo, copertina_path FROM elementi WHERE id = ?", (elem_id,))
             row = cursor.fetchone()
 
-        if row:
-            nuova_copertina = scarica_copertina_web(row['titolo'], row['autore'], row['tipo'], elem_id)
-            with get_db() as conn:
-                conn.cursor().execute("UPDATE elementi SET copertina_path = ? WHERE id = ?", (nuova_copertina, elem_id))
-            flash(f"Copertina aggiornata per '{row['titolo']}'!", "successo")
+        if not row:
+            flash("La scheda richiesta non esiste più o è stata eliminata.", "errore")
+            return redirect(url_for("index"))
+
+        fallback_path = _fallback_per_tipo(row['tipo'])
+        vecchia_copertina = row['copertina_path']
+        nuova_copertina = scarica_copertina_web(row['titolo'], row['autore'], row['tipo'], elem_id)
+
+        # Non sovrascrivere una foto/copertina locale esistente con il segnaposto SVG
+        # se la ricerca online non ha trovato nulla o il PC è offline.
+        vecchia_locale = _percorso_copertina_locale(vecchia_copertina)
+        if nuova_copertina == fallback_path and vecchia_locale and os.path.isfile(vecchia_locale):
+            flash(
+                f"Nessuna nuova copertina trovata online per '{row['titolo']}': la copertina attuale è stata mantenuta.",
+                "info",
+            )
+            return redirect(url_for("index"))
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE elementi SET copertina_path = ? WHERE id = ?", (nuova_copertina, elem_id))
+            if vecchia_copertina and vecchia_copertina != nuova_copertina:
+                _rimuovi_copertina_se_orfana(cursor, vecchia_copertina)
+        flash(f"Copertina aggiornata per '{row['titolo']}'!", "successo")
         return redirect(url_for("index"))
 
     @app.route("/api/elementi/<int:elem_id>/dettagli", methods=["GET"])
@@ -284,8 +317,12 @@ def register(app):
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM appunti WHERE id = ?", (appunto_id,))
+            eliminato = cursor.rowcount > 0
 
-        flash("Appunto rimosso dal taccuino.", "info")
+        if eliminato:
+            flash("Appunto rimosso dal taccuino.", "info")
+        else:
+            flash("L'appunto richiesto non esiste più.", "errore")
         return redirect(url_for("index"))
 
     @app.route("/esporta_inventario")

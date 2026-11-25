@@ -29,8 +29,11 @@ from ..search import ricerca_per_citazione
 def register(app):
     @app.route("/api/ricerca_citazione", methods=["POST"])
     def api_ricerca_citazione():
-        dati = request.get_json(silent=True) or {}
-        frase = dati.get("frase", "").strip()
+        dati = request.get_json(silent=True)
+        if not isinstance(dati, dict):
+            dati = {}
+        frase_raw = dati.get("frase", "")
+        frase = frase_raw.strip() if isinstance(frase_raw, str) else ""
 
         if not frase:
             return jsonify({"success": False, "errore": "Inserisci una frase o alcune parole chiave per cercare."}), 400

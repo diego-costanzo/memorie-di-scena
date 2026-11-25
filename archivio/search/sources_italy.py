@@ -45,17 +45,17 @@ def cerca_opac_sbn(frase, max_risultati=4):
                 raw_items = resp2.json().get('data', {}).get('results', [])
 
         for item in raw_items[:max_risultati]:
-            bid = item.get('bid', '')
-            t_obj = item.get('title', {})
+            bid = str(item.get('bid') or '').strip()
+            t_obj = item.get('title') or {}
             titolo = t_obj.get('info') or t_obj.get('text') or 'Titolo non indicato'
             autore = t_obj.get('text') if t_obj.get('info') else 'Autore non indicato'
-            infos = item.get('infos', [])
+            infos = item.get('infos') or []
             editore_anno = infos[0] if infos else 'Servizio Bibliotecario Nazionale'
 
-            m_anno = re.search(r'\b(1[5-9]\d{2}|20\d{2})\b', editore_anno)
+            m_anno = re.search(r'\b(1[5-9]\d{2}|20\d{2})\b', str(editore_anno))
             anno = m_anno.group(1) if m_anno else ''
 
-            link = f"https://opac.sbn.it/bid/{bid}" if bid else "https://opac.sbn.it"
+            link = f"https://opac.sbn.it/bid/{urllib.parse.quote(bid, safe='')}" if bid else "https://opac.sbn.it"
             risultati.append({
                 'titolo': titolo,
                 'autore': autore,

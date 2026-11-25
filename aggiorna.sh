@@ -260,7 +260,20 @@ ferma_app() {
     if [ -f "$DIR/ferma.sh" ]; then
         bash "$DIR/ferma.sh" > /dev/null 2>&1 || true
     fi
-    pkill -f "$DIR/app.py" > /dev/null 2>&1 || true
+    "$PYTHON" - "$DIR/app.py" <<'PY' > /dev/null 2>&1 || true
+import os, signal, subprocess, sys
+target = sys.argv[1]
+out = subprocess.check_output(["ps", "-u", str(os.getuid()), "-o", "pid=,args="], text=True)
+for line in out.splitlines():
+    parts = line.strip().split(None, 1)
+    if len(parts) == 2 and target in parts[1] and "python" in parts[1].lower():
+        pid = int(parts[0])
+        if pid != os.getpid():
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+PY
     sleep 2
 }
 
@@ -359,6 +372,26 @@ copia_programma() {
 
     for elemento in "${CARTELLE_PROGRAMMA[@]}"; do
         if [ -d "$radice/$elemento" ]; then
+            # Rimuove eventuali file obsoleti eliminati nella nuova versione
+            # senza toccare __pycache__ o cartelle fuori dal codice programma.
+            if [ -d "$DIR/$elemento" ]; then
+                "$PYTHON" - "$DIR/$elemento" "$radice/$elemento" <<'PY' 2>/dev/null || true
+import os, sys
+dst, src = sys.argv[1:3]
+for root, _, files in os.walk(dst):
+    rel_dir = os.path.relpath(root, dst)
+    if "__pycache__" in rel_dir.split(os.sep):
+        continue
+    for nome in files:
+        if nome.endswith((".pyc", ".pyo")):
+            continue
+        if not os.path.exists(os.path.join(src, rel_dir, nome)):
+            try:
+                os.remove(os.path.join(root, nome))
+            except OSError:
+                pass
+PY
+            fi
             cp -a "$radice/$elemento/." "$DIR/$elemento/"
         fi
     done
@@ -385,7 +418,7 @@ ruota_istantanee() {
     local modello
     for modello in "programma_pre_update_*.tar.gz" "dati_pre_update_*.tar.gz" "archivio_pre_update_*.db"; do
         # shellcheck disable=SC2012
-        ls -1t "$BACKUP_DIR"/$modello 2>/dev/null | tail -n +6 | while read -r vecchio; do
+        ls -1t "$BACKUP_DIR"/$modello 2>/dev/null | tail -n +6 | while IFS= read -r vecchio; do
             rm -f "$vecchio"
         done
     done
@@ -396,6 +429,29 @@ ripristina() {
     local istantanea="$1" db_backup="$2"
     say "Ripristino della versione precedente..."
     if [ -n "$istantanea" ] && [ -f "$istantanea" ]; then
+        "$PYTHON" - "$istantanea" "$DIR" "${CARTELLE_PROGRAMMA[@]}" <<'PY' 2>/dev/null || true
+import os, sys, tarfile
+archivio, base = sys.argv[1], sys.argv[2]
+cartelle = sys.argv[3:]
+with tarfile.open(archivio, "r:gz") as tf:
+    attesi = {os.path.normpath(m.name) for m in tf.getmembers()}
+for c in cartelle:
+    root_c = os.path.join(base, c)
+    if not os.path.isdir(root_c):
+        continue
+    for r, _, files in os.walk(root_c):
+        if "__pycache__" in r.split(os.sep):
+            continue
+        for nome in files:
+            if nome.endswith((".pyc", ".pyo")):
+                continue
+            rel = os.path.normpath(os.path.relpath(os.path.join(r, nome), base))
+            if rel not in attesi:
+                try:
+                    os.remove(os.path.join(r, nome))
+                except OSError:
+                    pass
+PY
         tar -xzf "$istantanea" -C "$DIR" 2>/dev/null || true
     fi
     if [ -n "$db_backup" ] && [ -f "$db_backup" ]; then
@@ -461,8 +517,17 @@ applica() {
     ts="$(date '+%Y%m%d_%H%M%S')"
 
     ferma_app
-    istantanea="$(istantanea_programma)"
-    db_backup="$(backup_database)"
+    istantanea="$(istantanea_programma)" || istantanea=""
+    if [ -f "$DB_PATH" ]; then
+        if ! db_backup="$(backup_database)" || [ -z "$db_backup" ] || [ ! -f "$db_backup" ]; then
+            scrivi_stato "errore" "Impossibile creare una copia verificata del database: aggiornamento annullato."
+            avvia_app
+            attendi_avvio || true
+            return 1
+        fi
+    else
+        db_backup=""
+    fi
     backup_dati > /dev/null
     if [ -z "$istantanea" ] || [ ! -f "$istantanea" ]; then
         scrivi_stato "errore" "Impossibile creare l'istantanea di sicurezza: aggiornamento annullato."
@@ -505,6 +570,25 @@ PY
 
     staging="$UPDATES_DIR/staging_${ts}"
     mkdir -p "$staging"
+    if ! "$PYTHON" - "$archivio_pacchetto" <<'PY' 2>/dev/null; then
+import sys, tarfile
+with tarfile.open(sys.argv[1], "r:gz") as tf:
+    for m in tf.getmembers():
+        parti = m.name.replace("\\", "/").split("/")
+        if m.name.startswith("/") or ".." in parti:
+            raise SystemExit(1)
+        if m.issym() or m.islnk():
+            link_parti = m.linkname.replace("\\", "/").split("/")
+            if m.linkname.startswith("/") or ".." in link_parti:
+                raise SystemExit(1)
+PY
+        say "Pacchetto non sicuro."
+        scrivi_stato "errore" "Il pacchetto scaricato contiene percorsi non sicuri. I tuoi dati non sono stati toccati."
+        rm -rf "$staging" "$archivio_pacchetto"
+        avvia_app
+        attendi_avvio || true
+        return 1
+    fi
     if ! tar -xzf "$archivio_pacchetto" -C "$staging" --no-same-owner 2>/dev/null; then
         say "Pacchetto non valido."
         scrivi_stato "errore" "Il pacchetto scaricato non è valido. I tuoi dati non sono stati toccati."

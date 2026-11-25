@@ -33,8 +33,22 @@ from datetime import datetime
 from flask import jsonify, request
 
 from .. import config
-from ..db import get_db
+from ..db import get_db, pulisci_cestino_scaduto
 from ..utils import formatta_data_italiana, pattern_ricerca
+
+
+def _estrai_dati_richiesta():
+    """Restituisce un mapping sicuro da body JSON (se dict) o form."""
+    if request.is_json:
+        dati = request.get_json(silent=True)
+        return dati if isinstance(dati, dict) else {}
+    return request.form
+
+
+def _campo_str(dati, chiave):
+    """Legge una stringa ripulita senza mai sollevare AttributeError su tipi inattesi."""
+    val = dati.get(chiave)
+    return val.strip() if isinstance(val, str) else ""
 
 
 def register(app):
@@ -92,13 +106,13 @@ def register(app):
     @app.route("/api/diario/nuovo", methods=["POST"])
     def api_diario_nuovo():
         """Salva un nuovo foglio di pergamena nel diario con data e ora indelebili."""
-        dati = request.get_json(silent=True) or request.form
-        testo = (dati.get('testo') or '').strip()
+        dati = _estrai_dati_richiesta()
+        testo = _campo_str(dati, 'testo')
         if not testo:
             return jsonify({'success': False, 'messaggio': 'Scrivi il testo del pensiero o della citazione prima di salvare.'}), 400
 
-        titolo = (dati.get('titolo') or '').strip()
-        fonte = (dati.get('fonte_riferimento') or '').strip()
+        titolo = _campo_str(dati, 'titolo')
+        fonte = _campo_str(dati, 'fonte_riferimento')
         data_leggibile = formatta_data_italiana()
 
         with get_db() as conn:
@@ -113,13 +127,13 @@ def register(app):
 
     @app.route("/api/diario/<int:pensiero_id>/modifica", methods=["POST"])
     def api_diario_modifica(pensiero_id):
-        dati = request.get_json(silent=True) or request.form
-        nuovo_testo = (dati.get('testo') or '').strip()
+        dati = _estrai_dati_richiesta()
+        nuovo_testo = _campo_str(dati, 'testo')
         if not nuovo_testo:
             return jsonify({'success': False, 'messaggio': 'Il testo non può essere vuoto.'}), 400
 
-        nuovo_titolo = (dati.get('titolo') or '').strip()
-        nuova_fonte = (dati.get('fonte_riferimento') or '').strip()
+        nuovo_titolo = _campo_str(dati, 'titolo')
+        nuova_fonte = _campo_str(dati, 'fonte_riferimento')
         data_modifica = formatta_data_italiana()
 
         with get_db() as conn:
@@ -186,17 +200,26 @@ def register(app):
         oggi_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE diario_pensieri
-                SET eliminato = 1, data_eliminazione = ?
-                WHERE id = ?
-            """, (oggi_iso, pensiero_id))
+            cursor.execute("SELECT eliminato FROM diario_pensieri WHERE id = ?", (pensiero_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'messaggio': 'Pensiero non trovato.'}), 404
+            # Evita di resettare la data di eliminazione se il foglio è già nel cestino.
+            if not row['eliminato']:
+                cursor.execute("""
+                    UPDATE diario_pensieri
+                    SET eliminato = 1, data_eliminazione = ?
+                    WHERE id = ? AND eliminato = 0
+                """, (oggi_iso, pensiero_id))
         return jsonify({'success': True})
 
     @app.route("/api/diario/<int:pensiero_id>/ripristina", methods=["POST"])
     def api_diario_ripristina(pensiero_id):
         with get_db() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM diario_pensieri WHERE id = ?", (pensiero_id,))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'messaggio': 'Pensiero non trovato.'}), 404
             cursor.execute("""
                 UPDATE diario_pensieri
                 SET eliminato = 0, data_eliminazione = NULL
@@ -208,6 +231,7 @@ def register(app):
     def api_diario_cestino():
         with get_db() as conn:
             cursor = conn.cursor()
+            pulisci_cestino_scaduto(cursor)
             cursor.execute("""
                 SELECT id, titolo, testo, fonte_riferimento, data_creazione, data_eliminazione
                 FROM diario_pensieri

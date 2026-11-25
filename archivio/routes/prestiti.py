@@ -15,6 +15,7 @@ REGOLE
   così lo storico resta consultabile nella scheda del volume.
 - Le date sono stringhe gg/mm/aaaa, coerenti con il resto dell'archivio.
 """
+import sqlite3
 from datetime import date
 
 from flask import flash, redirect, request, url_for
@@ -43,29 +44,34 @@ def register(app):
             flash("Inserisci il nome della persona a cui presti il volume!", "errore")
             return redirect(url_for("index"))
 
-        with get_db() as conn:
-            cursor = conn.cursor()
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
 
-            # Confermiamo che il volume esista davvero: senza questo controllo
-            # l'INSERT violerebbe la chiave esterna e l'utente vedrebbe un
-            # errore 500 invece di un avviso chiaro.
-            cursor.execute("SELECT titolo FROM elementi WHERE id = ?", (elemento_id,))
-            elem = cursor.fetchone()
-            if not elem:
-                flash("Il volume selezionato non è più presente in archivio.", "errore")
-                return redirect(url_for("index"))
+                # Confermiamo che il volume esista davvero: senza questo controllo
+                # l'INSERT violerebbe la chiave esterna e l'utente vedrebbe un
+                # errore 500 invece di un avviso chiaro.
+                cursor.execute("SELECT titolo FROM elementi WHERE id = ?", (elemento_id,))
+                elem = cursor.fetchone()
+                if not elem:
+                    flash("Il volume selezionato non è più presente in archivio.", "errore")
+                    return redirect(url_for("index"))
 
-            cursor.execute("SELECT id FROM prestiti WHERE elemento_id = ? AND stato = 'In Prestito'", (elemento_id,))
-            if cursor.fetchone():
-                flash("Questo volume risulta già attualmente in prestito!", "errore")
-                return redirect(url_for("index"))
+                cursor.execute("SELECT id FROM prestiti WHERE elemento_id = ? AND stato = 'In Prestito'", (elemento_id,))
+                if cursor.fetchone():
+                    flash("Questo volume risulta già attualmente in prestito!", "errore")
+                    return redirect(url_for("index"))
 
-            cursor.execute("""
-                INSERT INTO prestiti (elemento_id, nome_persona, data_prestito, data_rientro_prevista, stato)
-                VALUES (?, ?, ?, ?, 'In Prestito')
-            """, (elemento_id, nome_persona, data_prestito, data_rientro_prevista))
+                cursor.execute("""
+                    INSERT INTO prestiti (elemento_id, nome_persona, data_prestito, data_rientro_prevista, stato)
+                    VALUES (?, ?, ?, ?, 'In Prestito')
+                """, (elemento_id, nome_persona, data_prestito, data_rientro_prevista))
 
-            titolo = elem['titolo']
+                titolo = elem['titolo']
+        except sqlite3.IntegrityError:
+            # Protegge da doppio clic ravvicinato che attiva idx_prestiti_attivo_unico.
+            flash("Questo volume risulta già attualmente in prestito!", "errore")
+            return redirect(url_for("index"))
 
         flash(f"Prestito registrato: '{titolo}' è stato prestato a {nome_persona}.", "successo")
         return redirect(url_for("index"))
@@ -80,6 +86,7 @@ def register(app):
                 SET stato = 'Rientrato', data_rientro_effettiva = ?
                 WHERE id = ? AND stato = 'In Prestito'
             """, (data_oggi, prestito_id))
+            aggiornato = cursor.rowcount > 0
 
             cursor.execute("""
                 SELECT e.titolo, p.nome_persona
@@ -89,9 +96,11 @@ def register(app):
             """, (prestito_id,))
             row = cursor.fetchone()
 
-        if row:
+        if aggiornato and row:
             flash(f"Bentornato! '{row['titolo']}' prestato a {row['nome_persona']} è ora di nuovo a casa.", "successo")
+        elif row:
+            flash(f"Il prestito di '{row['titolo']}' risultava già contrassegnato come rientrato.", "info")
         else:
-            flash("Il prestito è stato contrassegnato come rientrato.", "successo")
+            flash("Il prestito richiesto non esiste più.", "errore")
 
         return redirect(url_for("index"))

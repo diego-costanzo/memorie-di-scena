@@ -97,6 +97,8 @@ function chiudiModali() {
   document.querySelectorAll('.modal-overlay').forEach((modal) => {
     modal.classList.remove('active');
   });
+  // Ripristina lo scorrimento della pagina (impostato da apriModalChiudi).
+  document.body.style.overflow = '';
 }
 
 function escapeHtml(text) {
@@ -147,16 +149,30 @@ function regexAccenti(parola) {
 
 function evidenzia(testo, frase) {
   if (!testo) return '';
-  const sicuro = escapeHtml(testo);
-  const parole = String(frase)
+  const raw = String(testo);
+  const parole = String(frase || '')
     .split(/\s+/)
     .map((p) => p.trim())
     .filter((p) => p.length >= 2)
     .sort((a, b) => b.length - a.length);
-  if (!parole.length) return sicuro;
-  // Un'unica espressione (niente annidamenti di <mark>) su testo già ripulito da XSS.
-  const re = new RegExp('(' + parole.map(regexAccenti).join('|') + ')', 'gi');
-  return sicuro.replace(re, '<mark>$1</mark>');
+  if (!parole.length) return escapeHtml(raw);
+
+  // Applica il match sul testo grezzo prima dell'escape: così parole come
+  // "amp" o "quot" non spezzano le entità HTML (&amp;, &quot;) e anche
+  // espressioni con apostrofi vengono evidenziate senza rischi XSS.
+  const patterns = parole.map(regexAccenti).filter(Boolean);
+  if (!patterns.length) return escapeHtml(raw);
+  const re = new RegExp('(' + patterns.join('|') + ')', 'gi');
+  let out = '';
+  let ultimo = 0;
+  for (const m of raw.matchAll(re)) {
+    if (!m[0]) continue;
+    out += escapeHtml(raw.slice(ultimo, m.index));
+    out += '<mark>' + escapeHtml(m[0]) + '</mark>';
+    ultimo = m.index + m[0].length;
+  }
+  out += escapeHtml(raw.slice(ultimo));
+  return out;
 }
 
 function impostaCollocazione(inputId, valore) {
@@ -391,12 +407,12 @@ function applicaFiltroTipo(tipo, btn) {
 
 function eseguiFiltro() {
   const campoRicerca = document.getElementById('campoRicerca');
-  const query = campoRicerca ? campoRicerca.value.toLowerCase().trim() : '';
+  const query = campoRicerca ? senzaAccenti(campoRicerca.value.trim()).toLowerCase() : '';
   const schede = document.querySelectorAll('.libro-card');
   let visibili = 0;
 
   schede.forEach((card) => {
-    const cardSearchText = card.getAttribute('data-search') || '';
+    const cardSearchText = senzaAccenti(card.getAttribute('data-search') || '').toLowerCase();
     const cardTipo = card.getAttribute('data-tipo');
     const cardPrestito = card.getAttribute('data-prestito');
 
@@ -452,6 +468,8 @@ function cancellaRicerca() {
 function gestisciCaricamentoFoto(files) {
   if (!files || files.length === 0) return;
   const file = files[0];
+  const fileInput = document.getElementById('fileFotoInput');
+  if (fileInput) fileInput.value = '';
 
   const loading = document.getElementById('ocrLoading');
   const msgIniziale = document.getElementById('messaggioInizialeOcr');
@@ -640,6 +658,7 @@ function aggiornaCampiTipoOcr() {
 // GESTIONE CHIUSURA APPLICAZIONE (RIPONI IL TACCUINO)
 // ==============================================================================
 function apriModalChiudi() {
+  chiudiModali();
   const modal = document.getElementById('modalChiudiApp');
   if (modal) {
     modal.classList.add('active');
@@ -742,7 +761,7 @@ function eseguiRicercaCitazione() {
       const titolo = document.getElementById('citazioneRisultatiTitolo');
       const conteggio = document.getElementById('citazioneRisultatiConteggio');
       
-      if (titolo) titolo.textContent = '📚 Libri trovati per: «' + escapeHtml(frase) + '»';
+      if (titolo) titolo.textContent = '📚 Libri trovati per: «' + frase + '»';
       if (conteggio) conteggio.textContent = dati.totale_risultati + ' risultat' + (dati.totale_risultati === 1 ? 'o' : 'i');
       
       if (lista) {
@@ -773,10 +792,10 @@ function eseguiRicercaCitazione() {
           let linkHtml = '';
           if (r.diario_id) {
             card.classList.add('in-diario');
-            linkHtml = `<button type="button" class="citazione-link in-diario" onclick="chiudiModali(); apriPensieroDalDiario(${r.diario_id})">📜 Apri Foglio nel tuo Diario →</button>`;
+            linkHtml = `<button type="button" class="citazione-link in-diario" onclick="chiudiModali(); apriPensieroDalDiario(${Number(r.diario_id)})">📜 Apri Foglio nel tuo Diario →</button>`;
           } else if (r.in_archivio) {
             card.classList.add('in-libreria');
-            linkHtml = `<button type="button" class="citazione-link in-casa" onclick="chiudiModali(); apriModalModifica('${r.elemento_id}')">🏠 Apri Scheda & Ricordi nella tua Collezione →</button>`;
+            linkHtml = `<button type="button" class="citazione-link in-casa" onclick="chiudiModali(); apriModalModifica(${Number(r.elemento_id)})">🏠 Apri Scheda & Ricordi nella tua Collezione →</button>`;
           } else {
             if (r.link_info) {
               // urlSicuro(): accetta solo http/https o percorsi locali e blocca
@@ -801,7 +820,7 @@ function eseguiRicercaCitazione() {
                 }
               </div>
               <div class="citazione-card-content">
-                <div class="citazione-fonte-badge">${r.fonte_icona || '📚'} ${escapeHtml(r.fonte || 'Database')}</div>
+                <div class="citazione-fonte-badge">${escapeHtml(r.fonte_icona || '📚')} ${escapeHtml(r.fonte || 'Database')}</div>
                 <h4 class="citazione-titolo-libro">${evidenzia(r.titolo, frase)}</h4>
                 <div class="citazione-autore-libro">di ${escapeHtml(r.autore)}</div>
                 ${dettagliHtml}
@@ -1161,6 +1180,10 @@ function apriModalModificaPensiero(id) {
             }, 100);
           }
         }
+      })
+      .catch(err => {
+        console.error('Errore apertura modifica pensiero:', err);
+        alert('Impossibile caricare il foglio del diario.');
       });
   }
 }

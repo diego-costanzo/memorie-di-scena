@@ -16,6 +16,7 @@ DOVE VIENE USATO CIASCUN GRUPPO
 Se aggiungi una funzione qui, mantienila pura (nessun accesso a file, rete o
 database) e aggiungi un test in `tests/test_smoke.py`.
 """
+import html
 import re
 import unicodedata
 from datetime import date, datetime
@@ -48,15 +49,10 @@ def pulisci_snippet(testo):
     """Pulisce un frammento HTML rimuovendo tag e normalizzando spazi."""
     if not testo:
         return ""
+    if not isinstance(testo, str):
+        testo = str(testo)
     pulito = re.sub(r"<[^>]+>", "", testo)
-    pulito = (
-        pulito.replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-        .replace("&nbsp;", " ")
-    )
+    pulito = html.unescape(pulito).replace("\xa0", " ")
     return " ".join(pulito.split()).strip()
 
 

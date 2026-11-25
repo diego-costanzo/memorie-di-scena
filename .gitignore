@@ -15,6 +15,7 @@ Thumbs.db
 *.swo
 *~
 *.log
+.vscode/
 
 # Script personale di backup sviluppatore
 backup.sh
@@ -25,6 +26,8 @@ data/archivio.db
 data/archivio.db-wal
 data/archivio.db-shm
 data/backup/
+data/.secret_key
+data/.aggiornamento.lock
 
 # Cache ricerche e file di runtime server
 data/cache/
@@ -42,5 +45,6 @@ data/aggiornamento_stato.json
 Aggiornamento_*.zip
 Aggiornamento_*.tar.gz
 
-# Copertine dell'utente: su un repository pubblico non devono mai finire
+# Copertine e foto OCR dell'utente: su un repository pubblico non devono mai finire
 static/covers/copertina_*
+static/covers/foto_acquisita_*

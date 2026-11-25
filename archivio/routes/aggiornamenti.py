@@ -39,12 +39,20 @@ TIMEOUT_CONTROLLO_SEC = 25
 
 
 def _leggi_json(percorso, predefinito):
-    """Legge un file JSON senza mai propagare errori all'interfaccia."""
+    """Legge un dizionario JSON senza mai propagare errori all'interfaccia."""
     try:
         with open(percorso, encoding="utf-8") as file_json:
-            return json.load(file_json)
+            dati = json.load(file_json)
+        return dati if isinstance(dati, dict) else dict(predefinito)
     except (OSError, ValueError):
-        return predefinito
+        return dict(predefinito)
+
+
+def _timestamp_int(valore):
+    try:
+        return int(valore or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _aggiornamento_disattivato():
@@ -69,7 +77,8 @@ def _esegui_controllo():
 
     cache = _leggi_json(config.UPDATE_CACHE_PATH, {})
     adesso = int(time.time())
-    if cache.get("controllato_il_ts") and adesso - int(cache["controllato_il_ts"]) < CACHE_FRESCA_SEC:
+    controllato_il = _timestamp_int(cache.get("controllato_il_ts"))
+    if controllato_il and adesso - controllato_il < CACHE_FRESCA_SEC:
         return cache
 
     if not os.path.isfile(config.UPDATE_SCRIPT):
@@ -151,7 +160,7 @@ def register(app):
 
         stato = _leggi_json(config.UPDATE_STATE_PATH, {})
         if stato.get("stato") == "in_corso":
-            avviato_da = int(stato.get("aggiornato_il_ts") or 0)
+            avviato_da = _timestamp_int(stato.get("aggiornato_il_ts"))
             if time.time() - avviato_da < STATO_IN_CORSO_SEC:
                 return jsonify({
                     "success": False,

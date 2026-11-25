@@ -40,6 +40,8 @@ Si salvano in cache SOLO i risultati online (24 ore, vedi `cache.py`). I
 risultati locali vengono ricalcolati a ogni ricerca, perché cambiano quando
 l'utente modifica la propria collezione.
 """
+import atexit
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .. import config
@@ -61,6 +63,24 @@ from .sources_wiki import (
     cerca_wikiquote,
     cerca_wikisource,
 )
+
+# Pool persistente condiviso: permette a `http.py` di riusare le sessioni HTTP
+# per-thread tra ricerche successive invece di crearne e abbandonarne di nuove.
+_POOL_LOCK = threading.Lock()
+_EXECUTOR = None
+
+
+def _get_executor():
+    global _EXECUTOR
+    if _EXECUTOR is None:
+        with _POOL_LOCK:
+            if _EXECUTOR is None:
+                _EXECUTOR = ThreadPoolExecutor(
+                    max_workers=config.MAX_WORKERS,
+                    thread_name_prefix="bussola",
+                )
+                atexit.register(_EXECUTOR.shutdown, wait=False)
+    return _EXECUTOR
 
 
 def punteggio_rilevanza(r, frase_norm):
@@ -88,11 +108,13 @@ def ricerca_per_citazione(frase, max_per_fonte=4):
     2. Interroga in parallelo 13 fonti esterne (tutte open source / dati aperti).
     3. Deduplica, ordina per rilevanza e salva in cache su disco per 24h.
     """
-    if not frase or len(frase.strip()) < 3:
+    if not frase:
         return []
 
-    # Pulizia frase da virgolette tipografiche accidentali
-    frase_pulita = frase.strip().strip('«»""''“”')
+    # Pulizia frase da virgolette tipografiche accidentali prima di verificarne la lunghezza.
+    frase_pulita = frase.strip().strip('«»""''“”').strip()
+    if len(frase_pulita) < 3:
+        return []
 
     # Controlla cache su disco per query online
     chiave = cache_key(frase_pulita)
@@ -104,42 +126,40 @@ def ricerca_per_citazione(frase, max_per_fonte=4):
     # 1. Ricerca locale immediata (0 ms)
     risultati_locali = cerca_locale(frase_pulita)
 
-    # 2. Ricerca in parallelo sui database esterni
+    # 2. Ricerca in parallelo sui database esterni tramite pool persistente
     risultati_online = []
-    with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
-        futures = {
-            executor.submit(cerca_wikiquote, frase_pulita, max_per_fonte): 'Wikiquote',
-            executor.submit(cerca_wikipedia, frase_pulita, max_per_fonte): 'Wikipedia',
-            executor.submit(cerca_wikisource, frase_pulita, max_per_fonte): 'Wikisource',
-            executor.submit(cerca_wikidata, frase_pulita, max_per_fonte): 'Wikidata',
-            executor.submit(cerca_opac_sbn, frase_pulita, max_per_fonte): 'OPAC SBN',
-            executor.submit(cerca_musicbrainz, frase_pulita, max_per_fonte): 'MusicBrainz',
-            executor.submit(cerca_liber_liber, frase_pulita, max_per_fonte): 'Liber Liber',
-            executor.submit(cerca_crossref, frase_pulita, max_per_fonte): 'Crossref',
-            executor.submit(cerca_gutenberg, frase_pulita, max_per_fonte): 'Project Gutenberg',
-            executor.submit(cerca_librivox, frase_pulita, max_per_fonte): 'LibriVox',
-            executor.submit(cerca_google_books, frase_pulita, max_per_fonte): 'Google Books',
-            executor.submit(cerca_open_library, frase_pulita, max_per_fonte): 'Open Library',
-            executor.submit(cerca_internet_archive, frase_pulita, max_per_fonte): 'Internet Archive',
-        }
+    executor = _get_executor()
+    futures = {
+        executor.submit(cerca_wikiquote, frase_pulita, max_per_fonte): 'Wikiquote',
+        executor.submit(cerca_wikipedia, frase_pulita, max_per_fonte): 'Wikipedia',
+        executor.submit(cerca_wikisource, frase_pulita, max_per_fonte): 'Wikisource',
+        executor.submit(cerca_wikidata, frase_pulita, max_per_fonte): 'Wikidata',
+        executor.submit(cerca_opac_sbn, frase_pulita, max_per_fonte): 'OPAC SBN',
+        executor.submit(cerca_musicbrainz, frase_pulita, max_per_fonte): 'MusicBrainz',
+        executor.submit(cerca_liber_liber, frase_pulita, max_per_fonte): 'Liber Liber',
+        executor.submit(cerca_crossref, frase_pulita, max_per_fonte): 'Crossref',
+        executor.submit(cerca_gutenberg, frase_pulita, max_per_fonte): 'Project Gutenberg',
+        executor.submit(cerca_librivox, frase_pulita, max_per_fonte): 'LibriVox',
+        executor.submit(cerca_google_books, frase_pulita, max_per_fonte): 'Google Books',
+        executor.submit(cerca_open_library, frase_pulita, max_per_fonte): 'Open Library',
+        executor.submit(cerca_internet_archive, frase_pulita, max_per_fonte): 'Internet Archive',
+    }
 
-        for future in as_completed(futures):
-            nome_fonte = futures[future]
-            try:
-                risultati_fonte = future.result()
-                risultati_online.extend(risultati_fonte)
-            except Exception as e:
-                print(f"[Ricerca {nome_fonte}] Errore: {e}")
+    for future in as_completed(futures):
+        nome_fonte = futures[future]
+        try:
+            risultati_fonte = future.result()
+            risultati_online.extend(risultati_fonte)
+        except Exception as e:
+            print(f"[Ricerca {nome_fonte}] Errore: {e}")
 
-    # Deduplicazione risultati online
+    # Deduplicazione risultati online: usa titolo normalizzato (e non un prefisso
+    # corto che farebbe collidere sottotitoli o record senza titolo).
     visti = {}
     online_unici = []
     for r in risultati_online:
-        # Una fonte esterna può restituire titolo None o assente: senza questa
-        # protezione un singolo record difettoso farebbe fallire (500) tutta
-        # la ricerca, perdendo anche i risultati validi delle altre fonti.
         titolo_norm = " ".join((r.get('titolo') or '').lower().split())
-        chiave_dedup = titolo_norm[:40]
+        chiave_dedup = titolo_norm if titolo_norm else f"__vuoto_{len(online_unici)}"
 
         if chiave_dedup not in visti:
             visti[chiave_dedup] = r

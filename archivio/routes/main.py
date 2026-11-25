@@ -33,7 +33,7 @@ from werkzeug.utils import secure_filename
 
 from .. import config
 from ..db import backup_database, get_db
-from ..ocr import estrai_testo_da_immagine, get_ocr_tools, stato_lingua_ocr
+from ..ocr import estrai_testo_da_immagine, get_ocr_tools, immagine_rgb_su_bianco, stato_lingua_ocr
 from ..utils import giorni_di_ritardo
 
 
@@ -49,7 +49,9 @@ def _pulisci_anteprime_orfane(ore=24):
     try:
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT copertina_path FROM elementi WHERE copertina_path LIKE '/static/covers/foto_acquisita%'")
+            cursor.execute(
+                "SELECT copertina_path FROM elementi WHERE copertina_path LIKE '/static/covers/foto\\_acquisita%' ESCAPE '\\'"
+            )
             in_uso = {os.path.basename(r["copertina_path"]) for r in cursor.fetchall()}
         limite = time.time() - ore * 3600
         for nome in os.listdir(config.COVERS_DIR):
@@ -164,27 +166,26 @@ def register(app):
         try:
             Image, ImageOps, resample_filter = get_ocr_tools()
             with Image.open(file.stream) as img:
+                # Ridimensiona prima di trasporre/convertire per limitare la RAM
+                # su foto ad altissima risoluzione (thumbnail conserva i tag EXIF).
+                if max(img.size) > config.MAX_IMAGE_DIM:
+                    img.thumbnail((config.MAX_IMAGE_DIM, config.MAX_IMAGE_DIM), resample_filter)
                 try:
                     img = ImageOps.exif_transpose(img)
                 except Exception:
                     pass
 
-                estensione = clean_filename.rsplit(".", 1)[1].lower()
-                if estensione == "jpeg":
-                    estensione = "jpg"
-                # Il suffisso casuale evita che due acquisizioni nello stesso
-                # secondo si sovrascrivano a vicenda (il timestamp da solo non
-                # basta: ha risoluzione di un secondo).
-                filename = f"foto_acquisita_{int(datetime.now().timestamp())}_{secrets.token_hex(4)}.{estensione}"
+                # Salviamo sempre come JPEG reale: usiamo sempre l'estensione .jpg.
+                filename = f"foto_acquisita_{int(datetime.now().timestamp())}_{secrets.token_hex(4)}.jpg"
                 save_path = os.path.join(config.COVERS_DIR, filename)
 
-                # Anteprima: usata anche come copertina del volume.
-                rgb_img = img.convert("RGB")
+                # Anteprima: appoggia eventuali trasparenze su sfondo bianco.
+                rgb_img = immagine_rgb_su_bianco(img, Image)
                 if max(rgb_img.size) > config.MAX_IMAGE_DIM:
                     rgb_img.thumbnail((config.MAX_IMAGE_DIM, config.MAX_IMAGE_DIM), resample_filter)
                 rgb_img.save(save_path, "JPEG", quality=85, optimize=True)
 
-                risultato = estrai_testo_da_immagine(img, max_lato=config.MAX_IMAGE_DIM)
+                risultato = estrai_testo_da_immagine(rgb_img, max_lato=config.MAX_IMAGE_DIM)
 
             return jsonify({
                 "success": True,

@@ -87,11 +87,20 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
         shutil.copy2(percorso_destinazione, backup_path)
         print(f"🛡️  Copia di sicurezza creata: {os.path.basename(backup_path)}")
 
-    # Assicurati che lo schema di destinazione sia inizializzato
+    # Assicurati che lo schema di destinazione sia inizializzato senza importare
+    # app.py (che attiverebbe create_app() e sposterebbe eventuale DB legacy).
     try:
-        sys.path.insert(0, BASE_DIR)
-        import app
-        app.init_db()
+        if BASE_DIR not in sys.path:
+            sys.path.insert(0, BASE_DIR)
+        from archivio import config as archivio_config
+        from archivio.db import init_db
+
+        vecchio_db_path = archivio_config.DB_PATH
+        try:
+            archivio_config.DB_PATH = percorso_destinazione
+            init_db()
+        finally:
+            archivio_config.DB_PATH = vecchio_db_path
     except Exception as e:
         print(f"ℹ️  Inizializzazione schema destinazione: {e}")
 
@@ -135,14 +144,29 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
                 collocazione = r["collocazione_casa"] if "collocazione_casa" in cols_src else ""
                 note = r["note"] if "note" in cols_src else ""
                 copertina = r["copertina_path"] if "copertina_path" in cols_src else ""
-                data_ins = r["data_inserimento"] if "data_inserimento" in cols_src else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                data_ins = (r["data_inserimento"] if "data_inserimento" in cols_src else None) or datetime.now().strftime("%d/%m/%Y")
 
-                regista = r["regista"] if "regista" in cols_src else ""
-                luogo = r["prima_esibizione_luogo"] if "prima_esibizione_luogo" in cols_src else ""
-                data_ingaggio = r["data_ingaggio"] if "data_ingaggio" in cols_src else ""
-                data_prima = r["data_prima"] if "data_prima" in cols_src else ""
-                formato = r["formato"] if "formato" in cols_src else ""
-                etichetta = r["etichetta_anno"] if "etichetta_anno" in cols_src else ""
+                regista = r["regista"] if "regista" in cols_src else None
+                luogo = r["prima_esibizione_luogo"] if "prima_esibizione_luogo" in cols_src else None
+                data_ingaggio = r["data_ingaggio"] if "data_ingaggio" in cols_src else None
+                data_prima = r["data_prima"] if "data_prima" in cols_src else None
+                formato = r["formato"] if "formato" in cols_src else None
+                etichetta = r["etichetta_anno"] if "etichetta_anno" in cols_src else None
+
+                # Evita duplicazioni fittizie se lo stesso volume è già stato migrato.
+                cur_dst.execute("""
+                    SELECT id FROM elementi
+                    WHERE tipo = ?
+                      AND titolo = ?
+                      AND COALESCE(autore, '') = COALESCE(?, '')
+                      AND COALESCE(collocazione_casa, '') = COALESCE(?, '')
+                      AND data_inserimento = ?
+                    LIMIT 1
+                """, (tipo, titolo, autore, collocazione, data_ins))
+                esistente = cur_dst.fetchone()
+                if esistente:
+                    id_elem_map[vecchio_id] = esistente[0]
+                    continue
 
                 # Inserisci nel nuovo database
                 cur_dst.execute("""
@@ -184,7 +208,7 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
                         else (r["persona"] if "persona" in cols_src_prest else "Sconosciuto")
                     ) or "Sconosciuto"
 
-                    data_prest = (r["data_prestito"] if "data_prestito" in cols_src_prest else "") or datetime.now().strftime("%Y-%m-%d")
+                    data_prest = (r["data_prestito"] if "data_prestito" in cols_src_prest else None) or datetime.now().strftime("%d/%m/%Y")
                     
                     data_rientro_p = (
                         r["data_rientro_prevista"] if "data_rientro_prevista" in cols_src_prest
@@ -200,6 +224,26 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
                         stato = r["stato"]
                     else:
                         stato = "Rientrato" if data_rientro_e else "In Prestito"
+
+                    # Evita duplicazioni se lo stesso prestito è già presente (prima del
+                    # controllo sullo stato attivo, per evitare doppi inserimenti al
+                    # secondo avvio su prestiti convertiti a Rientrato).
+                    cur_dst.execute(
+                        "SELECT 1 FROM prestiti WHERE elemento_id = ? AND nome_persona = ? AND data_prestito = ? LIMIT 1",
+                        (nuovo_elem_id, nome_persona, data_prest),
+                    )
+                    if cur_dst.fetchone():
+                        continue
+
+                    # Rispetta idx_prestiti_attivo_unico: un solo prestito attivo per volume.
+                    if stato == "In Prestito":
+                        cur_dst.execute(
+                            "SELECT 1 FROM prestiti WHERE elemento_id = ? AND stato = 'In Prestito' LIMIT 1",
+                            (nuovo_elem_id,),
+                        )
+                        if cur_dst.fetchone():
+                            print(f"   ⚠️ Prestito attivo duplicato per elemento {nuovo_elem_id}: marcato come Rientrato.")
+                            stato = "Rientrato"
 
                     cur_dst.execute("""
                         INSERT INTO prestiti (
@@ -225,8 +269,16 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
                 vecchio_elem_id = r["elemento_id"]
                 if vecchio_elem_id in id_elem_map:
                     nuovo_elem_id = id_elem_map[vecchio_elem_id]
-                    testo = r["testo"] if "testo" in cols_src_app else ""
-                    data_c = r["data_creazione"] if "data_creazione" in cols_src_app else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    testo = (r["testo"] if "testo" in cols_src_app else None) or ""
+                    data_c = (r["data_creazione"] if "data_creazione" in cols_src_app else None) or datetime.now().strftime("%d/%m/%Y alle %H:%M")
+                    if not testo:
+                        continue
+                    cur_dst.execute(
+                        "SELECT 1 FROM appunti WHERE elemento_id = ? AND testo = ? AND data_creazione = ? LIMIT 1",
+                        (nuovo_elem_id, testo, data_c),
+                    )
+                    if cur_dst.fetchone():
+                        continue
 
                     cur_dst.execute("""
                         INSERT INTO appunti (elemento_id, testo, data_creazione)
@@ -246,13 +298,22 @@ def migra_database(percorso_sorgente, percorso_destinazione=DB_ATTUALE):
             cur_src.execute("SELECT * FROM diario_pensieri ORDER BY id ASC")
             for r in cur_src.fetchall():
                 vecchio_pid = r["id"]
-                titolo = r["titolo"] if "titolo" in cols_src_diario else ""
-                testo = r["testo"] if "testo" in cols_src_diario else ""
-                fonte = r["fonte_riferimento"] if "fonte_riferimento" in cols_src_diario else ""
-                data_c = r["data_creazione"] if "data_creazione" in cols_src_diario else ""
-                data_m = r["data_ultima_modifica"] if "data_ultima_modifica" in cols_src_diario else ""
-                eliminato = r["eliminato"] if "eliminato" in cols_src_diario else 0
+                titolo = (r["titolo"] if "titolo" in cols_src_diario else None) or ""
+                testo = (r["testo"] if "testo" in cols_src_diario else None) or ""
+                fonte = (r["fonte_riferimento"] if "fonte_riferimento" in cols_src_diario else None) or ""
+                data_c = (r["data_creazione"] if "data_creazione" in cols_src_diario else None) or datetime.now().strftime("%d/%m/%Y")
+                data_m = (r["data_ultima_modifica"] if "data_ultima_modifica" in cols_src_diario else None) or ""
+                eliminato = r["eliminato"] if "eliminato" in cols_src_diario and r["eliminato"] is not None else 0
                 data_elim = r["data_eliminazione"] if "data_eliminazione" in cols_src_diario else None
+
+                cur_dst.execute(
+                    "SELECT id FROM diario_pensieri WHERE titolo = ? AND testo = ? AND data_creazione = ? LIMIT 1",
+                    (titolo, testo, data_c),
+                )
+                esistente_d = cur_dst.fetchone()
+                if esistente_d:
+                    id_diario_map[vecchio_pid] = esistente_d[0]
+                    continue
 
                 cur_dst.execute("""
                     INSERT INTO diario_pensieri (

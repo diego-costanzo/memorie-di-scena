@@ -25,7 +25,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Memorie di Scena - Archivio Teatrale e Collezione</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.9">
 </head>
 <body>
 
@@ -151,7 +151,8 @@
       <div class="prestiti-grid">
         {% for p in prestiti_attivi %}
         <div class="prestito-row-card {% if p.giorni_ritardo %}in-ritardo{% endif %}">
-          <img src="{{ p.copertina_path }}" alt="Copertina" class="prestito-thumb" onerror="this.src='/static/covers/default_{{ 'copione' if p.tipo == 'Copione' else ('musica' if p.tipo == 'CD / Vinile' else 'libro') }}.svg'">
+          {% set fallback_p = '/static/covers/default_' ~ ('copione' if p.tipo == 'Copione' else ('musica' if p.tipo == 'CD / Vinile' else 'libro')) ~ '.svg' %}
+          <img src="{{ p.copertina_path or fallback_p }}" alt="Copertina" class="prestito-thumb" onerror="this.src='{{ fallback_p }}'">
           <div class="prestito-info">
             <div class="prestito-titolo">{{ p.titolo }}</div>
             <div class="prestito-autore">{% if p.autore %}{{ p.autore }}{% else %}Autore/Artista non indicato{% endif %}</div>
@@ -292,10 +293,11 @@
           <div class="libro-card-body">
             <!-- Copertina -->
             <div class="libro-cover-container">
-              <img src="{{ el.copertina_path }}" 
+              {% set fallback_el = '/static/covers/default_' ~ ('copione' if el.tipo == 'Copione' else ('musica' if el.tipo == 'CD / Vinile' else 'libro')) ~ '.svg' %}
+              <img src="{{ el.copertina_path or fallback_el }}" 
                    alt="Copertina di {{ el.titolo }}" 
                    class="libro-cover-img"
-                   onerror="this.src='/static/covers/default_{{ 'copione' if el.tipo == 'Copione' else ('musica' if el.tipo == 'CD / Vinile' else 'libro') }}.svg'">
+                   onerror="this.src='{{ fallback_el }}'">
             </div>
 
             <!-- Dettagli -->
@@ -735,7 +737,7 @@
               Rientro Previsto
               <span class="suggerimento">(Facoltativo)</span>
             </label>
-            <input type="text" id="prestito_rientro_previsto" name="data_rientro_prevista" class="form-control" placeholder="Es. Tra due settimane, 15/12...">
+            <input type="text" id="prestito_rientro_previsto" name="data_rientro_prevista" class="form-control" placeholder="Es. 15/12/2026 (formato gg/mm/aaaa)">
           </div>
         </div>
 
@@ -949,7 +951,7 @@
 
 
   <!-- ====================================================================
-       MODALE 6: LA BUSSOLA CULTURALE (RICERCA TRA 11 ARCHIVI MONDIALI E DIARIO)
+       MODALE 6: LA BUSSOLA CULTURALE (RICERCA TRA 13 ARCHIVI MONDIALI E DIARIO)
        ==================================================================== -->
   <div class="modal-overlay" id="modalRicercaCitazione">
     <div class="modal-window" style="max-width: 900px;">
@@ -1028,7 +1030,7 @@
           </div>
 
           <button type="button" class="btn-cerca-citazione" onclick="eseguiRicercaCitazione()">
-            🧭 CERCA TRA LIBRI, TEATRO E MUSICA (11 ARCHIVI)
+            🧭 CERCA TRA LIBRI, TEATRO E MUSICA (13 ARCHIVI)
           </button>
         </div>
 
@@ -1036,7 +1038,7 @@
         <div id="citazioneLoading" class="citazione-loading" style="display: none;">
           <div class="citazione-loading-spinner"></div>
           <div>
-            <strong>Ricerca in corso su 11 archivi italiani e internazionali...</strong><br>
+            <strong>Ricerca in corso su 13 archivi italiani e internazionali...</strong><br>
             <span style="font-size: 16px; color: #6d4a2b;">
               Interrogo in parallelo Biblioteche Italiane (SBN), Wikisource, Liber Liber, MusicBrainz, Crossref, Google Books e Internet Archive.<br>
               Solo un istante — cerco tra milioni di opere e documenti! 🎭
@@ -1366,6 +1368,6 @@
 
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser con versioning) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.7"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.9"></script>
 </body>
 </html>

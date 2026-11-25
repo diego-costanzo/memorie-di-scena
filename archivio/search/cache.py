@@ -65,7 +65,8 @@ def pulisci_cache_scaduta():
         if os.path.exists(config.CACHE_DIR):
             ora = datetime.now().timestamp()
             for f in os.listdir(config.CACHE_DIR):
-                if f.endswith('.json'):
+                # Elimina solo i risultati di ricerca, mai aggiornamento.json.
+                if f.startswith('ricerca_') and f.endswith('.json'):
                     fp = os.path.join(config.CACHE_DIR, f)
                     if ora - os.path.getmtime(fp) > config.CACHE_EXPIRY_SEC:
                         try:

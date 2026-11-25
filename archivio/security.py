@@ -20,17 +20,58 @@ rifiutata con 400 e un messaggio JSON: è la causa più frequente di un form che
 
 NOTE
 ----
-- La chiave segreta deriva dal percorso dell'installazione e dall'utente: non è
-  una password condivisa, ma resta locale e sufficiente per firmare i cookie.
-- Il confronto usa `secrets.compare_digest` per non esporre differenze di tempo.
+- La chiave segreta è casuale per ogni installazione e salvata in
+  `DATA_DIR/.secret_key` con permessi `0600` (solo proprietario): i cookie
+  restano validi tra i riavvii senza essere prevedibili.
+- Le richieste vengono validate sull'header `Host` (solo loopback locale) per
+  prevenire attacchi di DNS rebinding; le risposte includono header difensivi
+  (CSP, X-Frame-Options, X-Content-Type-Options).
+- Il confronto CSRF usa `secrets.compare_digest` solo su stringhe ASCII valide.
 """
-import hashlib
 import os
 import secrets
+from urllib.parse import urlsplit
 
 from flask import jsonify, request, session
 
 from . import config
+
+# Host consentiti per proteggere l'istanza locale da attacchi di DNS rebinding.
+_HOST_LOOPBACK_CONSENTITI = {"127.0.0.1", "localhost", "::1"}
+
+
+def _ottieni_chiave_segreta():
+    """
+    Restituisce una chiave segreta casuale persistita in `DATA_DIR/.secret_key`
+    con permessi restrittivi (`0600`). Se la scrittura fallisce, ripiega su una
+    chiave casuale in memoria.
+    """
+    percorso = os.path.join(config.DATA_DIR, ".secret_key")
+    try:
+        if os.path.isfile(percorso):
+            with open(percorso, encoding="utf-8") as f:
+                chiave = f.read().strip()
+            if len(chiave) >= 32:
+                return chiave
+        chiave = secrets.token_hex(32)
+        os.makedirs(config.DATA_DIR, mode=0o700, exist_ok=True)
+        fd = os.open(percorso, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(chiave)
+        return chiave
+    except OSError:
+        return secrets.token_hex(32)
+
+
+def _host_valido(host_header):
+    """True se l'header Host punta esclusivamente al loopback locale."""
+    if not host_header:
+        return False
+    try:
+        hostname = (urlsplit(f"//{host_header}").hostname or "").lower()
+    except ValueError:
+        return False
+    return hostname in _HOST_LOOPBACK_CONSENTITI
 
 
 def _csrf_token():
@@ -43,11 +84,8 @@ def _csrf_token():
 
 
 def init_security(app):
-    """Configura chiave segreta, cookie protetti e validazione CSRF."""
-    # Chiave segreta deterministica e sicura dalla posizione dell'installazione
-    # (non hardcoded generica, ma unica per ogni macchina).
-    _seed = f"memorie_di_scena_{os.path.abspath(config.BASE_DIR)}_{os.getuid() if hasattr(os, 'getuid') else 'win'}"
-    app.secret_key = hashlib.sha256(_seed.encode()).hexdigest()
+    """Configura chiave segreta, cookie protetti, Host check, header e CSRF."""
+    app.secret_key = _ottieni_chiave_segreta()
 
     # Cookie di sessione protetti: SameSite Lax mitiga i CSRF via browser, HttpOnly contro XSS.
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -59,17 +97,46 @@ def init_security(app):
         return {"csrf_token": _csrf_token()}
 
     @app.before_request
-    def _proteggi_csrf():
-        """Valida il token CSRF su ogni richiesta che modifica lo stato."""
+    def _proteggi_host_e_csrf():
+        """Valida l'header Host (anti-DNS rebinding) e il token CSRF su scritture."""
+        if not _host_valido(request.host):
+            return jsonify({"success": False, "errore": "Host non consentito."}), 403
+
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
             token_atteso = session.get("_csrf_token")
             if not token_atteso:
                 return jsonify({"success": False, "errore": "Sessione scaduta: ricarica la pagina."}), 400
 
+            json_dati = request.get_json(silent=True)
+            csrf_json = json_dati.get("csrf_token") if isinstance(json_dati, dict) else None
             inviato = (
                 request.form.get("csrf_token")
-                or (request.get_json(silent=True) or {}).get("csrf_token")
+                or csrf_json
                 or request.headers.get("X-CSRF-Token")
             )
-            if not inviato or not secrets.compare_digest(str(inviato), str(token_atteso)):
+            # secrets.compare_digest su str solleva TypeError se contiene caratteri non-ASCII.
+            if (
+                not isinstance(inviato, str)
+                or not inviato
+                or not inviato.isascii()
+                or not secrets.compare_digest(inviato, str(token_atteso))
+            ):
                 return jsonify({"success": False, "errore": "Token di sicurezza non valido."}), 400
+
+    @app.after_request
+    def _aggiungi_header_sicurezza(risposta):
+        """Aggiunge header HTTP difensivi contro framing, sniffing e risorse esterne."""
+        risposta.headers.setdefault("X-Content-Type-Options", "nosniff")
+        risposta.headers.setdefault("X-Frame-Options", "DENY")
+        risposta.headers.setdefault("Referrer-Policy", "same-origin")
+        risposta.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "img-src 'self' https: http: data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "frame-ancestors 'none'; "
+            "object-src 'none'; "
+            "base-uri 'self'",
+        )
+        return risposta

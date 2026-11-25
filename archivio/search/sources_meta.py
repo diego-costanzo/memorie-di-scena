@@ -79,17 +79,19 @@ def cerca_crossref(frase, max_risultati=3):
         url = f"https://api.crossref.org/works?query.bibliographic={q}&rows={max_risultati}"
         resp = get_api_session().get(url, timeout=config.API_TIMEOUT)
         if resp.status_code == 200:
-            items = resp.json().get('message', {}).get('items', [])
+            items = (resp.json().get('message') or {}).get('items') or []
             for it in items:
-                titles = it.get('title', [])
+                titles = it.get('title') or []
                 titolo = titles[0] if titles else 'Titolo sconosciuto'
-                authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in it.get('author', []) if isinstance(a, dict)]
-                autore = ', '.join(authors) if authors else 'Autore / Critico teatrale'
-                publisher = it.get('publisher', '')
-                date_parts = it.get('published-print', {}).get('date-parts') or it.get('published-online', {}).get('date-parts') or []
+                authors = [f"{a.get('given', '')} {a.get('family', '')}".strip() for a in (it.get('author') or []) if isinstance(a, dict)]
+                autore = ', '.join(a for a in authors if a) if authors else 'Autore / Critico teatrale'
+                publisher = it.get('publisher') or ''
+                pub_print = it.get('published-print') or {}
+                pub_online = it.get('published-online') or {}
+                date_parts = pub_print.get('date-parts') or pub_online.get('date-parts') or []
                 anno = str(date_parts[0][0]) if date_parts and date_parts[0] else ''
-                doi = it.get('DOI', '')
-                link = f"https://doi.org/{doi}" if doi else it.get('URL', '')
+                doi = it.get('DOI') or ''
+                link = f"https://doi.org/{urllib.parse.quote(doi, safe='/:.-_')}" if doi else (it.get('URL') or '')
 
                 risultati.append({
                     'titolo': titolo,

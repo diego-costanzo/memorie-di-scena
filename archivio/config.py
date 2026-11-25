@@ -40,10 +40,10 @@ COVERS_DIR = os.path.join(BASE_DIR, "static", "covers")
 CACHE_DIR = os.path.join(DATA_DIR, "cache")
 BACKUP_DIR = os.path.join(DATA_DIR, "backup")
 
-os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, mode=0o700, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
-os.makedirs(CACHE_DIR, exist_ok=True)
-os.makedirs(BACKUP_DIR, exist_ok=True)
+os.makedirs(CACHE_DIR, mode=0o700, exist_ok=True)
+os.makedirs(BACKUP_DIR, mode=0o700, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 # VERSIONE E AGGIORNAMENTI
