@@ -7,6 +7,27 @@ Le versioni seguono la numerazione semantica: **MAJOR.MINOR.PATCH** (es. 2.0.0).
 
 ---
 
+## [2.0.2] — 25 novembre 2026
+
+Audit completo di sicurezza e correzione di bug su backend, OCR, interfaccia e script.
+
+### Sicurezza
+- **Protezione anti-DNS rebinding e header difensivi**: rifiuto delle richieste con header `Host` non loopback (`403`) e aggiunta di `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` e `Content-Security-Policy` (`frame-ancestors 'none'`).
+- **Chiave di sessione casuale**: `app.secret_key` viene generata casualmente con `secrets.token_hex(32)` e salvata in `data/.secret_key` con permessi `0600`, invece di derivarla dal percorso e dall'UID. Cartelle `data/`, `backup/`, `cache/` e copie di sicurezza usano permessi restrittivi (`0700`/`0600`).
+- **Download copertine più severo**: disabilitati i redirect automatici (`allow_redirects=False`) verificando ogni hop prima della chiamata; accettati solo MIME raster reali (rifiutati `Content-Type` assenti e SVG) con verifica effettiva dei byte via Pillow, validazione di `mbid`/`cover_id` e chiusura garantita degli stream HTTP.
+- **CSRF e parser JSON resilienti**: bloccati senza errori 500 i token CSRF non-ASCII, i payload JSON non-dizionario e i campi non stringa nelle API di ricerca e diario.
+- **Path copertina e privacy Git**: verifica esplicita `isfile` su `copertina_caricata` (evita il fallback su directory con nomi come `"???"`); aggiunti `static/covers/foto_acquisita_*`, `data/.secret_key`, `data/.aggiornamento.lock` e `.vscode/` a `.gitignore`.
+
+### Corretto
+- **Interfaccia**: ripristino dello scroll pagina alla chiusura del modale di uscita; evidenziazione dei risultati senza spezzare entità HTML (`&amp;`, `&quot;`) né doppio escaping nei titoli; ricerca sullo Scaffale insensibile agli accenti; placeholder esplicito `gg/mm/aaaa` per il rientro prestiti; conteggio aggiornato a 13 archivi nella Bussola; versioning statici allineato anche in `acquisizione_ocr.html`.
+- **Rotte, OCR e cache**: `aggiorna_copertina` non sovrascrive più le foto locali con il segnaposto SVG se offline e rimuove i vecchi file solo quando orfani; `ocr_upload` ridimensiona prima di convertire e salva sempre file `.jpg` reali gestendo le trasparenze su sfondo bianco; passata multilingue OCR applicata alla variante migliore; `pulisci_cache_scaduta()` non cancella più `aggiornamento.json`; pulizia cestino coerente su ora locale; gestione sicura di doppi prestiti e falsi messaggi di successo.
+- **Script e migrazione**: `aggiorna.sh` ora fallisce in sicurezza se `backup_database` fallisce, verifica i percorsi dentro il tarball prima dell'estrazione, ripulisce file obsoleti nelle cartelle di codice durante aggiornamento/ripristino e sostituisce `pkill -f` con controllo esatto dei processi Python dell'app (così come `ferma.sh`); `avvia.sh` aggiunge `--max-time` a `curl`; `data/migra_database.py` evita duplicazioni e inizializza direttamente lo schema di destinazione senza importare `app.py`.
+
+### Aggiunto
+- **15 nuovi test automatici** (52 in totale) su sicurezza HTTP/CSRF, redirect SSRF, upload/copertine, cache, cestino, prestiti e migrazione.
+
+---
+
 ## [2.0.1] — 20 novembre 2026
 
 Correzioni di sicurezza, senza cambiare nulla nell'uso quotidiano.

@@ -6,8 +6,8 @@
 [![Architettura](https://img.shields.io/badge/Architettura-32--bit%20%7C%2064--bit-2d6a4f.svg)](#-requisiti-di-sistema)
 [![Database](https://img.shields.io/badge/Database-SQLite%20locale%20(100%25%20privato)-40916c.svg)](#-dove-sono-i-tuoi-dati)
 [![Software](https://img.shields.io/badge/Software-100%25%20Open%20Source-52b788.svg)](#-solo-software-libero)
-[![Test](https://img.shields.io/badge/Test-37%20superati-brightgreen.svg)](#-verifiche-e-test)
-[![Versione](https://img.shields.io/badge/Versione-2.0.1-1b4332.svg)](VERSION)
+[![Test](https://img.shields.io/badge/Test-52%20superati-brightgreen.svg)](#-verifiche-e-test)
+[![Versione](https://img.shields.io/badge/Versione-2.0.2-1b4332.svg)](VERSION)
 [![Licenza](https://img.shields.io/badge/Licenza-MIT-blue.svg)](LICENSE)
 
 **In breve** — *Memorie di Scena* è un **gestionale di biblioteca personale** e un **catalogo di copioni teatrali e dischi** che funziona interamente **offline** sul tuo computer, con **Flask** e **SQLite**: cataloga libri, vinili e CD, registra i **prestiti**, conserva un **diario di citazioni** e legge le copertine dalle **foto (OCR)**. È **open source**, gratuito e senza account; i dati non lasciano mai il tuo PC.
@@ -182,7 +182,7 @@ Questa versione è una revisione completa del programma, pensata per essere **pi
 
 1. **Programma riordinato in moduli** — il vecchio file unico è stato diviso in un pacchetto `archivio/` (configurazione, database, sicurezza, ricerca, rotte). Più facile da leggere, correggere e migliorare.
 2. **Sicurezza delle richieste (CSRF)** — ogni operazione che modifica i dati richiede un token di sicurezza; una pagina esterna non può più "far scrivere" al tuo archivio.
-3. **Cookie protetti e chiave segreta unica** — sessione `HttpOnly` e `SameSite=Lax`, con chiave derivata dall'installazione (non una password uguale per tutti).
+3. **Cookie protetti e chiave segreta casuale** — sessione `HttpOnly` e `SameSite=Lax`, chiave casuale per installazione (`data/.secret_key`), controllo dell'header `Host` contro il DNS rebinding e header HTTP difensivi.
 4. **Protezione dai contenuti malevoli (XSS)** — i testi inseriti vengono sempre trattati come testo, mai come codice; i link non sicuri (`javascript:`, `data:`) vengono bloccati.
 5. **Database più affidabile** — SQLite in modalità WAL, `synchronous=FULL`, controllo delle chiavi esterne, connessioni chiuse sempre (niente perdite di memoria).
 6. **Backup automatico a rotazione** — a ogni avvio viene salvata una copia coerente del database; ne restano le ultime **7**, in `data/backup/`.
@@ -193,7 +193,7 @@ Questa versione è una revisione completa del programma, pensata per essere **pi
 11. **Inventario stampabile** — un pulsante esporta tutta la collezione in un file CSV che si apre con LibreOffice o Excel, con i prestiti compresi. Utile per stampare l'elenco o conservarlo fuori dal computer.
 12. **Copia di sicurezza con un clic** — dalla pagina principale, il pulsante «💾 Copia di sicurezza» salva subito una copia del database nella cartella Download, senza chiudere il programma.
 13. **Aggiornamenti automatici sicuri** — il programma controlla da solo, una volta alla settimana, se su GitHub c'è una versione nuova e lo segnala con un avviso e un pulsante. Prima di aggiornare salva una copia dei tuoi dati e, se qualcosa non va, rimette tutto com'era.
-14. **Test automatici e isolamento** — 37 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
+14. **Test automatici e isolamento** — 52 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
 
 ---
 
@@ -269,9 +269,9 @@ Se esiste ancora un vecchio `archivio.db` nella cartella principale del programm
 
 Quello che segue è il "perché" tecnico, spiegato senza gergo inutile.
 
-- **Solo sul tuo computer.** Il programma ascolta esclusivamente su `127.0.0.1` (il tuo PC): non è raggiungibile da altri computer della rete o da internet.
-- **Dati privati per scelta.** Libri, prestiti, appunti e diario stanno in un database SQLite locale. Nessun account, nessun tracciamento, nessun invio a server esterni.
-- **Operazioni protette.** Ogni modifica (inserimento, modifica, eliminazione) richiede un token segreto di sessione. Una pagina web aperta in un'altra scheda non può modificare il tuo archivio.
+- **Solo sul tuo computer.** Il programma ascolta esclusivamente su `127.0.0.1` (il tuo PC) e rifiuta richieste con `Host` esterno (protezione contro DNS rebinding).
+- **Dati privati per scelta.** Libri, prestiti, appunti e diario stanno in un database SQLite locale con permessi restrittivi (`0700`/`0600`). Nessun account, nessun tracciamento, nessun invio a server esterni.
+- **Operazioni protette.** Ogni modifica (inserimento, modifica, eliminazione) richiede un token segreto di sessione firmato con una chiave casuale locale; le pagine bloccano anche l'inclusione in `<iframe>` esterni.
 - **Testi sempre innocui.** Tutto ciò che scrivi viene mostrato come testo, mai eseguito come codice. I link esterni vengono controllati e quelli pericolosi vengono bloccati.
 - **Caricamenti controllati.** Sono accettate solo immagini JPG, PNG, WEBP e JFIF, fino a 32 MB; il nome del file viene ripulito e non può "uscire" dalla cartella delle copertine.
 - **Database coerente.** Le connessioni usano transazioni con conferma o annullamento, il database controlla l'integrità delle relazioni e viene chiuso correttamente a ogni operazione.
@@ -354,7 +354,7 @@ Memorie di Scena/
 ├── avvia.sh                    # avvio silenzioso e apertura del browser
 ├── ferma.sh                    # chiusura ordinata
 ├── aggiorna.sh                 # controlla e applica gli aggiornamenti da GitHub
-├── VERSION                     # versione installata (es. 2.0.0), confrontata con GitHub
+├── VERSION                     # versione installata (es. 2.0.2), confrontata con GitHub
 ├── docs/immagini/              # le immagini che vedi in questa pagina
 ├── requirements.txt            # librerie Python necessarie
 ├── CONTRIBUTING.md             # come proporre un miglioramento
@@ -379,13 +379,13 @@ Il programma sarà raggiungibile su <http://127.0.0.1:5000>. Per chiudere: `CTRL
 
 ## ✅ Verifiche e test
 
-Il progetto include 37 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia delle righe OCR, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza e sua integrità, calcolo dei giorni di ritardo, sistema di aggiornamento e limiti di sicurezza nel recupero delle copertine). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
+Il progetto include 52 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF e `Host`, header di sicurezza, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia delle righe OCR e upload, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza e sua integrità, calcolo dei giorni di ritardo, sistema di aggiornamento, migrazione dati e limiti di sicurezza nel recupero delle copertine). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
 
 ```bash
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-Risultato atteso: `Ran 37 tests ... OK`.
+Risultato atteso: `Ran 52 tests ... OK`.
 
 ---
 

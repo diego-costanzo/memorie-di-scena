@@ -7,7 +7,7 @@
 - ascolta solo su `127.0.0.1` (il tuo computer), non sulla rete;
 - non ha account, login remoti o servizi cloud;
 - salva tutti i dati in un database SQLite locale (`data/archivio.db`);
-- usa una chiave di sessione unica per installazione, cookie `HttpOnly` e `SameSite=Lax`, e un token CSRF su ogni operazione che modifica i dati.
+- usa una chiave di sessione casuale per installazione (`data/.secret_key`, permessi `0600`), cookie `HttpOnly` e `SameSite=Lax`, validazione dell'header `Host` contro il DNS rebinding, header HTTP difensivi e un token CSRF su ogni operazione che modifica i dati.
 
 Questo riduce molto la superficie di rischio, ma non elimina l'importanza di segnalare un problema in modo responsabile.
 
