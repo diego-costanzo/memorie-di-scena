@@ -465,6 +465,83 @@ function cancellaRicerca() {
 // ACQUISIZIONE GUIDATA DA FOTO (OCR)
 // -----------------------------------------------------------------------------
 
+let ocrIsbnRilevato = '';
+
+function _etichettaRuoloOcr(ruolo) {
+  const mappa = {
+    titolo: '📖 Titolo suggerito',
+    autore: '👤 Autore suggerito',
+    regista: '🎬 Regia suggerita',
+    teatro: '🏛️ Teatro',
+    editore: '🏢 Editore',
+    etichetta: '🎵 Etichetta / Formato',
+    isbn: '🔢 Codice ISBN',
+  };
+  return mappa[ruolo] || '';
+}
+
+function _impostaCampoSeAutomatico(idCampo, valore) {
+  const campo = document.getElementById(idCampo);
+  if (!campo || !valore) return;
+  // Non sovrascrive mai ciò che l'utente ha digitato o modificato a mano.
+  if (!campo.value.trim() || campo.dataset.autoCompilato === '1') {
+    campo.value = valore;
+    campo.dataset.autoCompilato = '1';
+  }
+}
+
+function svuotaCampiOcr() {
+  const campi = [
+    'campo_titolo', 'campo_autore', 'campo_regista', 'campo_luogo',
+    'campo_ingaggio', 'campo_data_prima', 'campo_etichetta_anno', 'campo_note'
+  ];
+  campi.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+      delete el.dataset.autoCompilato;
+    }
+  });
+  const risDiv = document.getElementById('ocrCataloghiRisultati');
+  if (risDiv) {
+    risDiv.innerHTML = '';
+    risDiv.style.display = 'none';
+  }
+}
+
+function _applicaSuggerimentiOcr(sugg) {
+  if (!sugg) return;
+  if (sugg.tipo) {
+    const radioTipo = document.querySelector(`#formSalvaOcr input[name="tipo"][value="${sugg.tipo}"]`);
+    if (radioTipo) {
+      radioTipo.checked = true;
+      aggiornaCampiTipoOcr();
+    }
+  }
+  if (sugg.tipo === 'CD / Vinile' && sugg.formato) {
+    const radioFmt = document.querySelector(`#formSalvaOcr input[name="formato"][value="${sugg.formato}"]`);
+    if (radioFmt) radioFmt.checked = true;
+  }
+  _impostaCampoSeAutomatico('campo_titolo', sugg.titolo || '');
+  _impostaCampoSeAutomatico('campo_autore', sugg.autore || '');
+  _impostaCampoSeAutomatico('campo_regista', sugg.regista || '');
+  _impostaCampoSeAutomatico('campo_luogo', sugg.prima_esibizione_luogo || '');
+  _impostaCampoSeAutomatico('campo_data_prima', sugg.data_prima || '');
+  _impostaCampoSeAutomatico('campo_etichetta_anno', sugg.etichetta_anno || '');
+  _impostaCampoSeAutomatico('campo_note', sugg.note || '');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const formOcr = document.getElementById('formSalvaOcr');
+  if (formOcr) {
+    formOcr.addEventListener('input', (e) => {
+      if (e.target && e.target.dataset) {
+        delete e.target.dataset.autoCompilato;
+      }
+    });
+  }
+});
+
 function gestisciCaricamentoFoto(files) {
   if (!files || files.length === 0) return;
   const file = files[0];
@@ -498,19 +575,43 @@ function gestisciCaricamentoFoto(files) {
       const anteprimaBox = document.getElementById('anteprimaBox');
       const copertinaCaricata = document.getElementById('ocr_copertina_caricata');
 
-      if (anteprimaImg) anteprimaImg.src = dati.anteprima_url;
+      if (anteprimaImg) anteprimaImg.src = urlSicuro(dati.anteprima_url);
       if (anteprimaBox) anteprimaBox.style.display = 'block';
       if (copertinaCaricata) copertinaCaricata.value = dati.anteprima_url;
+
+      ocrIsbnRilevato = (dati.suggerimenti && dati.suggerimenti.isbn) ? dati.suggerimenti.isbn : '';
+
+      // Avviso doppione già presente nella libreria di casa
+      const boxDoppione = document.getElementById('avvisoDoppioneOcr');
+      if (boxDoppione) {
+        if (dati.doppione_locale && dati.doppione_locale.titolo) {
+          const d = dati.doppione_locale;
+          const dove = d.collocazione_casa ? ` — ${d.collocazione_casa}` : '';
+          const aut = d.autore ? ` di ${d.autore}` : '';
+          boxDoppione.textContent = `🏠 Sembra già nella tua libreria: «${d.titolo}»${aut}${dove}.`;
+          boxDoppione.style.display = 'block';
+        } else {
+          boxDoppione.style.display = 'none';
+          boxDoppione.textContent = '';
+        }
+      }
 
       // Renderizza righe rilevate
       const contenitore = document.getElementById('contenitoreLineeOcr');
       const sezRighe = document.getElementById('sezioneRigheOcr');
       const conteggio = document.getElementById('conteggioLinee');
+      const smartBox = document.getElementById('ocrSuggerimentiBox');
+      const risCataloghi = document.getElementById('ocrCataloghiRisultati');
+      if (risCataloghi) {
+        risCataloghi.innerHTML = '';
+        risCataloghi.style.display = 'none';
+      }
 
       if (contenitore) contenitore.innerHTML = '';
 
       if (dati.linee && dati.linee.length > 0) {
         if (sezRighe) sezRighe.style.display = 'block';
+        if (smartBox) smartBox.style.display = 'block';
         if (conteggio) conteggio.textContent = dati.linee.length + ' righe trovate';
 
         // Indicazione della qualità di lettura: aiuta a capire se rifare la foto.
@@ -528,9 +629,23 @@ function gestisciCaricamentoFoto(files) {
           }
         }
 
+        if (dati.suggerimenti) {
+          _applicaSuggerimentiOcr(dati.suggerimenti);
+        }
+
+        const ruoli = Array.isArray(dati.ruoli) ? dati.ruoli : [];
         dati.linee.forEach((linea, index) => {
           const rowDiv = document.createElement('div');
           rowDiv.className = 'ocr-linea-item';
+
+          const ruolo = ruoli[index] || '';
+          const etichettaRuolo = _etichettaRuoloOcr(ruolo);
+          if (etichettaRuolo) {
+            const badge = document.createElement('span');
+            badge.className = `ocr-ruolo-badge ruolo-${ruolo}`;
+            badge.textContent = etichettaRuolo;
+            rowDiv.appendChild(badge);
+          }
 
           const input = document.createElement('input');
           input.type = 'text';
@@ -591,6 +706,7 @@ function gestisciCaricamentoFoto(files) {
         });
       } else {
         if (sezRighe) sezRighe.style.display = 'block';
+        if (smartBox) smartBox.style.display = 'none';
         if (contenitore) {
           contenitore.innerHTML = '<p style="color: #8c421d; font-size: 17px;">Nessun testo leggibile trovato nella foto. Puoi comunque compilare i campi a destra e usare la foto come copertina!</p>';
         }
@@ -603,10 +719,109 @@ function gestisciCaricamentoFoto(files) {
     });
 }
 
+function arricchisciOcrDaCataloghi() {
+  const btn = document.getElementById('btnArricchisciOcr');
+  const boxRis = document.getElementById('ocrCataloghiRisultati');
+  const titoloEl = document.getElementById('campo_titolo');
+  const autoreEl = document.getElementById('campo_autore');
+  const tipoChecked = document.querySelector('#formSalvaOcr input[name="tipo"]:checked');
+
+  const titolo = titoloEl ? titoloEl.value.trim() : '';
+  const autore = autoreEl ? autoreEl.value.trim() : '';
+  const tipo = tipoChecked ? tipoChecked.value : 'Libro';
+
+  if (!ocrIsbnRilevato && titolo.length < 3) {
+    alert('Inserisci o trasferisci almeno il titolo (3 caratteri) prima di cercare nei cataloghi.');
+    if (titoloEl) titoloEl.focus();
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Ricerca nei cataloghi...';
+  }
+  if (boxRis) {
+    boxRis.innerHTML = '<div style="font-size: 14px; color: #5a3c20;">Interrogo Open Library, Google Books e MusicBrainz...</div>';
+    boxRis.style.display = 'flex';
+  }
+
+  fetch('/api/ocr/arricchisci', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      isbn: ocrIsbnRilevato,
+      titolo: titolo,
+      autore: autore,
+      tipo: tipo,
+      csrf_token: csrfToken()
+    })
+  })
+    .then((res) => res.json())
+    .then((dati) => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔍 Verifica e completa dai cataloghi';
+      }
+      if (!boxRis) return;
+      if (!dati.success) {
+        boxRis.innerHTML = `<div style="color: #8c2020;">${escapeHtml(dati.errore || 'Ricerca non riuscita.')}</div>`;
+        return;
+      }
+      const risultati = dati.risultati || [];
+      if (risultati.length === 0) {
+        boxRis.innerHTML = '<div style="color: #6d4a2b;">Nessuna corrispondenza trovata nei cataloghi online. Puoi salvare i dati così come sono.</div>';
+        return;
+      }
+
+      boxRis.innerHTML = '';
+      risultati.forEach((r) => {
+        const card = document.createElement('div');
+        card.className = 'ocr-catalogo-card';
+
+        const infoDiv = document.createElement('div');
+        const dettagli = [r.autore, r.editore, r.anno].filter(Boolean).join(' • ');
+        infoDiv.innerHTML = `<strong>${escapeHtml(r.titolo)}</strong><br><small style="color:#6d4a2b;">${escapeHtml(dettagli)} (${escapeHtml(r.fonte)})</small>`;
+
+        const btnApplica = document.createElement('button');
+        btnApplica.type = 'button';
+        btnApplica.className = 'btn-trasferisci autore';
+        btnApplica.textContent = '✅ Applica';
+        btnApplica.addEventListener('click', () => {
+          if (r.titolo) trasferisciCampo('campo_titolo', r.titolo);
+          if (r.autore) trasferisciCampo('campo_autore', r.autore);
+          if (tipo === 'CD / Vinile') {
+            const et = [r.editore, r.anno].filter(Boolean).join(', ');
+            if (et) trasferisciCampo('campo_etichetta_anno', et);
+          } else {
+            const extra = [r.editore ? `Editore: ${r.editore}` : '', r.anno ? `Anno: ${r.anno}` : ''].filter(Boolean).join(' • ');
+            const campoNote = document.getElementById('campo_note');
+            if (extra && campoNote && !campoNote.value.includes(extra)) {
+              accodaNote(extra);
+            }
+          }
+        });
+
+        card.appendChild(infoDiv);
+        card.appendChild(btnApplica);
+        boxRis.appendChild(card);
+      });
+    })
+    .catch(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔍 Verifica e completa dai cataloghi';
+      }
+      if (boxRis) {
+        boxRis.innerHTML = '<div style="color: #8c2020;">Connessione assente: puoi continuare a lavorare offline.</div>';
+      }
+    });
+}
+
 function trasferisciCampo(targetId, valore) {
   const target = document.getElementById(targetId);
   if (target) {
     target.value = valore.trim();
+    delete target.dataset.autoCompilato;
     target.focus();
     target.style.transition = 'background 0.3s ease';
     target.style.background = '#fff8e3';
@@ -619,6 +834,7 @@ function trasferisciCampo(targetId, valore) {
 function accodaNote(valore) {
   const campo = document.getElementById('campo_note');
   if (campo) {
+    delete campo.dataset.autoCompilato;
     if (campo.value.trim().length > 0) {
       campo.value = campo.value.trim() + '\n' + valore.trim();
     } else {

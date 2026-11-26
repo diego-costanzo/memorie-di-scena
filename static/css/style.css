@@ -1529,6 +1529,96 @@ textarea.form-control {
   color: #382459;
 }
 
+/* Badge ruolo suggerito e assistenza intelligente OCR */
+.ocr-ruolo-badge {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  background: #f4ead7;
+  color: #5a3c20;
+  border: 1px solid #d5be9b;
+}
+
+.ocr-ruolo-badge.ruolo-titolo {
+  background: #fbf2df;
+  color: #613e0c;
+  border-color: #c99b45;
+}
+
+.ocr-ruolo-badge.ruolo-autore {
+  background: #edf5eb;
+  color: #1a4f15;
+  border-color: #6fa667;
+}
+
+.ocr-ruolo-badge.ruolo-regista {
+  background: #fbeeef;
+  color: #6e1520;
+  border-color: #d1828c;
+}
+
+.ocr-ruolo-badge.ruolo-isbn {
+  background: #e9f2f9;
+  color: #16446b;
+  border-color: #7ea8cc;
+}
+
+.ocr-doppione-box {
+  background: #fff4e0;
+  border: 2px solid #d49b38;
+  border-radius: 8px;
+  padding: 11px 14px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  color: #4f2f08;
+  font-weight: bold;
+  line-height: 1.45;
+}
+
+.ocr-smart-bar {
+  background: #fcf7ec;
+  border: 2px solid #d7be8f;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+
+.ocr-smart-titolo {
+  font-size: 15px;
+  font-weight: bold;
+  color: #4b2d12;
+  margin-bottom: 8px;
+}
+
+.ocr-smart-azioni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ocr-cataloghi-risultati {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ocr-catalogo-card {
+  background: #ffffff;
+  border: 1.5px solid #d5be9b;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 15px;
+}
+
 /* Indicatore di caricamento OCR */
 .ocr-loading {
   display: none;

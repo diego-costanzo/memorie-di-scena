@@ -223,10 +223,20 @@ def _raddrizza(img, pytesseract):
 
 def _ingrandisci(img, resample):
     """Ingrandisce le foto troppo piccole: i caratteri devono essere leggibili."""
-    lato_max = max(img.size)
-    if lato_max and lato_max < config.OCR_UPSCALE_MIN:
-        fattore = config.OCR_UPSCALE_MIN / lato_max
-        nuova = (max(1, int(img.width * fattore)), max(1, int(img.height * fattore)))
+    w, h = img.size
+    lato_max = max(w, h)
+    lato_min = min(w, h)
+    if not lato_max or not lato_min:
+        return img
+    fattore = 1.0
+    if lato_max < config.OCR_UPSCALE_MIN:
+        fattore = max(fattore, config.OCR_UPSCALE_MIN / lato_max)
+    if lato_min < 700:
+        fattore = max(fattore, 700 / lato_min)
+    if fattore > 1.0:
+        fattore = min(fattore, config.MAX_IMAGE_DIM / lato_max)
+    if fattore > 1.02:
+        nuova = (max(1, int(w * fattore)), max(1, int(h * fattore)))
         return img.resize(nuova, resample)
     return img
 
@@ -242,11 +252,13 @@ def _binarizza_adattiva(grigio, ImageFilter, ImageChops, ImageOps):
 
     Tutti i passaggi usano filtri Pillow scritti in C: nessun ciclo sui pixel.
     """
-    raggio = max(8, min(25, max(grigio.size) // 120))
-    media_locale = grigio.filter(ImageFilter.BoxBlur(raggio))
+    # Leggera riduzione rumore JPEG prima della soglia adattiva locale.
+    pulita = grigio.filter(ImageFilter.MedianFilter(size=3))
+    raggio = max(8, min(25, max(pulita.size) // 120))
+    media_locale = pulita.filter(ImageFilter.BoxBlur(raggio))
 
     # Quanto ogni pixel è più scuro della media del vicinato (0 dove è più chiaro).
-    scarto = ImageChops.subtract(media_locale, grigio)
+    scarto = ImageChops.subtract(media_locale, pulita)
 
     # Soglia proporzionale alla luminosità locale: il 12% della media.
     # Funziona sia su fondo chiaro (soglia alta) sia su fondo scuro (soglia bassa).
@@ -262,28 +274,27 @@ def _varianti_lettura(grigio, ImageFilter, ImageChops, ImageOps):
     Genera le varianti da provare, in ordine di probabilità di riuscita.
     Ogni elemento è (nome, immagine, modalità di segmentazione PSM).
 
-    Nota ingegneristica: il motore LSTM di Tesseract 5 è addestrato su immagini
-    in scala di grigi con contrasto disteso, non su immagini binarizzate. Per
-    questo la prima variante è la versione "distesa" (equalizzazione
-    dell'istogramma): nelle prove pratiche è quella che legge più caratteri
-    corretti, e la più veloce. La binarizzazione adattiva interviene solo se la
-    confidenza misurata resta bassa (foto con ombre o sfondi colorati), mentre
-    l'inversione serve per le scritte chiare su fondo scuro.
+    Nota ingegneristica:
+    1. `nitida` (autocontrast + leggero unsharp, PSM 3): veloce e pulita, non
+       esalta la grana degli sfondi uniformi come fa `equalize`.
+    2. `sparsa` (autocontrast, PSM 11): segmentazione sparsa ideale per
+       copertine illustrate, locandine e dorsi di dischi con titoli grandi e
+       testi separati.
+    3. `adattiva` (binarizzazione Bradley su scala di grigi denoise, PSM 3):
+       regge luci irregolari, ombre laterali e riflessi.
+    4. `invertita` (negativo ad alto contrasto, PSM 11): testo chiaro o dorato
+       su sfondo scuro.
+    5. `distesa` (equalizzazione istogramma, PSM 11): rete di sicurezza per
+       frontespizi sbiaditi o a bassissimo contrasto.
     """
-    disteso = ImageOps.equalize(grigio)
+    auto = ImageOps.autocontrast(grigio, cutoff=1)
+    nitida = auto.filter(ImageFilter.UnsharpMask(radius=1.2, percent=120, threshold=3))
 
-    # 1. Contrasto disteso: il caso più frequente e il più veloce.
-    yield "distesa", disteso, 3
-
-    # 2. Binaria adattiva: regge luci irregolari, ombre laterali e sfondi colorati.
-    yield "adattiva", _binarizza_adattiva(disteso, ImageFilter, ImageChops, ImageOps), 3
-
-    # 3. Invertita: testo chiaro su fondo scuro (locandine, dorso di vinili).
-    yield "invertita", ImageOps.invert(disteso), 11
-
-    # 4. Autocontrast: rete di sicurezza per immagini già molto contrastate,
-    #    dove l'equalizzazione può esaltare il rumore di fondo.
-    yield "nitida", ImageOps.autocontrast(grigio, cutoff=1), 3
+    yield "nitida", nitida, 3
+    yield "sparsa", auto, 11
+    yield "adattiva", _binarizza_adattiva(grigio, ImageFilter, ImageChops, ImageOps), 3
+    yield "invertita", ImageOps.invert(auto), 11
+    yield "distesa", ImageOps.equalize(grigio), 11
 
 
 # ------------------------------------------------------------------------------
@@ -305,6 +316,13 @@ def _leggi_righe(immagine, psm, pytesseract, lingua=""):
         timeout=config.OCR_TIMEOUT,
     )
 
+    img_w = max(1, immagine.width)
+    img_h = max(1, immagine.height)
+    lefts = dati.get("left") or []
+    tops = dati.get("top") or []
+    widths = dati.get("width") or []
+    heights = dati.get("height") or []
+
     righe = {}
     ordine = []
     for i, parola in enumerate(dati.get("text", [])):
@@ -320,11 +338,32 @@ def _leggi_righe(immagine, psm, pytesseract, lingua=""):
 
         chiave = (dati["block_num"][i], dati["par_num"][i], dati["line_num"][i])
         if chiave not in righe:
-            righe[chiave] = {"parole": [], "conf": [], "pesi": []}
+            righe[chiave] = {
+                "parole": [],
+                "conf": [],
+                "pesi": [],
+                "x1": None,
+                "y1": None,
+                "x2": 0,
+                "y2": 0,
+            }
             ordine.append(chiave)
-        righe[chiave]["parole"].append(parola)
-        righe[chiave]["conf"].append(conf)
-        righe[chiave]["pesi"].append(max(1, len(parola)))
+        gruppo = righe[chiave]
+        gruppo["parole"].append(parola)
+        gruppo["conf"].append(conf)
+        gruppo["pesi"].append(max(1, len(parola)))
+        if i < len(lefts) and i < len(tops) and i < len(widths) and i < len(heights):
+            try:
+                lx = int(lefts[i])
+                ty = int(tops[i])
+                ww = max(0, int(widths[i]))
+                hh = max(0, int(heights[i]))
+                gruppo["x1"] = lx if gruppo["x1"] is None else min(gruppo["x1"], lx)
+                gruppo["y1"] = ty if gruppo["y1"] is None else min(gruppo["y1"], ty)
+                gruppo["x2"] = max(gruppo["x2"], lx + ww)
+                gruppo["y2"] = max(gruppo["y2"], ty + hh)
+            except (TypeError, ValueError):
+                pass
 
     risultato = []
     for chiave in ordine:
@@ -332,7 +371,23 @@ def _leggi_righe(immagine, psm, pytesseract, lingua=""):
         testo = " ".join(gruppo["parole"])
         peso_totale = sum(gruppo["pesi"]) or 1
         conf_media = sum(c * p for c, p in zip(gruppo["conf"], gruppo["pesi"])) / peso_totale
-        risultato.append({"testo": testo, "conf": conf_media})
+        if gruppo["x1"] is not None and gruppo["y1"] is not None and gruppo["x2"] > gruppo["x1"] and gruppo["y2"] > gruppo["y1"]:
+            bbox = (
+                round(gruppo["x1"] / img_w, 4),
+                round(gruppo["y1"] / img_h, 4),
+                round(gruppo["x2"] / img_w, 4),
+                round(gruppo["y2"] / img_h, 4),
+            )
+            altezza_rel = round((gruppo["y2"] - gruppo["y1"]) / img_h, 4)
+        else:
+            bbox = (0.0, 0.0, 0.0, 0.0)
+            altezza_rel = 0.0
+        risultato.append({
+            "testo": testo,
+            "conf": conf_media,
+            "bbox": bbox,
+            "altezza_rel": altezza_rel,
+        })
     return risultato
 
 
@@ -388,6 +443,45 @@ def _punteggio(righe):
     return conf_media + premio
 
 
+def _sovrapposizione_bbox(box_a, box_b):
+    """
+    Misura la sovrapposizione relativa rispetto al riquadro più piccolo (0.0 - 1.0).
+    Serve a capire se due varianti OCR hanno letto la stessa area della foto.
+    """
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    if area_a <= 0.0 or area_b <= 0.0:
+        return 0.0
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+    return inter / min(area_a, area_b)
+
+
+def _unifica_righe_complementari(base_righe, candidate_righe, conf_minima=68.0):
+    """
+    Integra nella variante vincente solo righe ad alta confidenza lette da altre
+    varianti in aree della foto NON già coperte (es. titolo chiaro su banda scura
+    unito ad autore scuro su sfondo chiaro), evitando doppioni sullo stesso testo.
+    """
+    finali = list(base_righe)
+    for cand in sorted(candidate_righe, key=lambda r: r["conf"], reverse=True):
+        if cand["conf"] < conf_minima:
+            continue
+        if any(_simili(cand["testo"], esistente["testo"]) for esistente in finali):
+            continue
+        box_c = cand.get("bbox") or (0.0, 0.0, 0.0, 0.0)
+        if any(_sovrapposizione_bbox(box_c, esistente.get("bbox") or (0.0, 0.0, 0.0, 0.0)) > 0.30 for esistente in finali):
+            continue
+        finali.append(cand)
+
+    # Ordine naturale dall'alto verso il basso (e da sinistra a destra).
+    finali.sort(key=lambda r: ((r.get("bbox") or (0.0, 0.0, 0.0, 0.0))[1], (r.get("bbox") or (0.0, 0.0, 0.0, 0.0))[0]))
+    return finali
+
+
 def _conf_media(righe):
     """Confidenza media delle righe accettate (0 se non ce ne sono)."""
     if not righe:
@@ -439,6 +533,7 @@ def estrai_testo_da_immagine(img, max_lato=None):
     migliore = {"righe": [], "punteggio": 0.0, "nome": "", "variante": None, "psm": 3}
     passate = []
     prima_variante = None
+    tutte_candidate = []
 
     for nome, variante, psm in _varianti_lettura(grigio, ImageFilter, ImageChops, ImageOps):
         if prima_variante is None:
@@ -453,8 +548,14 @@ def estrai_testo_da_immagine(img, max_lato=None):
         for riga in lette:
             testo = _pulisci_riga(riga["testo"])
             if _riga_utile(testo, riga["conf"]):
-                righe_ok.append({"testo": testo, "conf": riga["conf"]})
+                righe_ok.append({
+                    "testo": testo,
+                    "conf": riga["conf"],
+                    "bbox": riga.get("bbox", (0.0, 0.0, 0.0, 0.0)),
+                    "altezza_rel": riga.get("altezza_rel", 0.0),
+                })
 
+        tutte_candidate.extend(righe_ok)
         punteggio = _punteggio(righe_ok)
         if punteggio > migliore["punteggio"]:
             migliore = {
@@ -487,8 +588,14 @@ def estrai_testo_da_immagine(img, max_lato=None):
             for riga in lette:
                 testo = _pulisci_riga(riga["testo"])
                 if _riga_utile(testo, riga["conf"]):
-                    righe_ok.append({"testo": testo, "conf": riga["conf"]})
+                    righe_ok.append({
+                        "testo": testo,
+                        "conf": riga["conf"],
+                        "bbox": riga.get("bbox", (0.0, 0.0, 0.0, 0.0)),
+                        "altezza_rel": riga.get("altezza_rel", 0.0),
+                    })
             passate.append("multilingue")
+            tutte_candidate.extend(righe_ok)
             punteggio_multi = _punteggio(righe_ok)
             if punteggio_multi > migliore["punteggio"]:
                 migliore = {
@@ -502,11 +609,9 @@ def estrai_testo_da_immagine(img, max_lato=None):
         except Exception:
             pass
 
-    # Scelta finale: si usano le righe della variante migliore, non un minestrone
-    # di tutte. Mescolare le letture di varianti diverse produce doppioni e righe
-    # sbagliate (es. «Umberto Eco» e «Umberto Eta.»): meglio poche righe giuste,
-    # che l'utente può correggere, invece di rumore da districare.
-    finali = migliore["righe"]
+    # Scelta finale: parte dalla variante migliore e integra eventuali righe
+    # ad alta confidenza lette da altre varianti in zone distinte dell'immagine.
+    finali = _unifica_righe_complementari(migliore["righe"], tutte_candidate)
 
     linee = [r["testo"] for r in finali]
     confidenza = int(round(sum(r["conf"] for r in finali) / len(finali))) if finali else 0
@@ -520,6 +625,7 @@ def estrai_testo_da_immagine(img, max_lato=None):
 
     return {
         "linee": linee,
+        "righe_dettaglio": finali,
         "confidenza": confidenza,
         "qualita": qualita,
         "rotazione": rotazione,

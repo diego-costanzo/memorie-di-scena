@@ -24,7 +24,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Acquisizione Guidata da Foto (OCR) - Memorie di Scena</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.10">
 </head>
 <body>
 
@@ -103,6 +103,7 @@
             <span id="conteggioLinee" style="font-size: 15px; color: #6d4a2b;"></span>
           </div>
           <div id="avvisoQualitaOcr" style="display: none; background: #fdfaf2; border: 1.5px dashed #d5be9b; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 15px; color: #5a3c20; line-height: 1.5;"></div>
+          <div id="avvisoDoppioneOcr" class="ocr-doppione-box" style="display: none;"></div>
           <p style="font-size: 15px; color: #624328; margin-bottom: 14px; font-style: italic;">
             Puoi correggere il testo direttamente nella casella prima di cliccare su uno dei pulsanti per trasferirlo a destra:
           </p>
@@ -133,6 +134,20 @@
 
           <!-- Percorso copertina caricata dall'OCR -->
           <input type="hidden" id="ocr_copertina_caricata" name="copertina_caricata" value="">
+
+          <!-- Barra assistenza intelligente (visibile dopo lettura foto) -->
+          <div id="ocrSuggerimentiBox" class="ocr-smart-bar" style="display: none;">
+            <div class="ocr-smart-titolo">✨ Campi suggeriti dalla foto: controlla e correggi se serve.</div>
+            <div class="ocr-smart-azioni">
+              <button type="button" id="btnArricchisciOcr" class="btn-trasferisci titolo" onclick="arricchisciOcrDaCataloghi()">
+                🔍 Verifica e completa dai cataloghi
+              </button>
+              <button type="button" class="btn-trasferisci" onclick="svuotaCampiOcr()">
+                🧹 Svuota campi
+              </button>
+            </div>
+            <div id="ocrCataloghiRisultati" class="ocr-cataloghi-risultati" style="display: none;"></div>
+          </div>
 
           <!-- Scelta a 3 Pulsanti Giganti: Libro / Copione / CD-Vinile -->
           <div class="tipo-selector-3">
@@ -276,7 +291,7 @@
   </div>
 
   <!-- Logica JavaScript Esterna (Ottimizzata per la cache del browser) -->
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.9"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=2.10"></script>
 </body>
 </html>
 

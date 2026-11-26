@@ -474,6 +474,30 @@ class TestApplicazione(unittest.TestCase):
         self.assertTrue(dati["success"])
         self.assertTrue(dati["filename"].endswith(".jpg"))
         self.assertTrue(os.path.isfile(os.path.join(covers_tmp, dati["filename"])))
+        self.assertIn("suggerimenti", dati)
+        self.assertIn("ruoli", dati)
+
+    def test_api_ocr_arricchisci_validazione_e_risposta(self):
+        """La rotta di arricchimento OCR rifiuta input vuoti (400) e restituisce i candidati."""
+        from unittest import mock
+
+        with self.client.session_transaction() as sessione:
+            sessione["_csrf_token"] = "token-di-prova"
+
+        r_400 = self.client.post(
+            "/api/ocr/arricchisci",
+            json={"isbn": "", "titolo": "ab", "csrf_token": "token-di-prova"},
+        )
+        self.assertEqual(r_400.status_code, 400)
+
+        finti = [{"titolo": "Il barone rampante", "autore": "Italo Calvino", "editore": "Mondadori", "anno": "1957", "isbn": "9788804680017", "fonte": "Open Library"}]
+        with mock.patch("archivio.routes.main.arricchisci_da_cataloghi", return_value=finti):
+            r_200 = self.client.post(
+                "/api/ocr/arricchisci",
+                json={"isbn": "9788804680017", "titolo": "barone", "csrf_token": "token-di-prova"},
+            )
+        self.assertEqual(r_200.status_code, 200)
+        self.assertEqual(r_200.get_json()["risultati"][0]["titolo"], "Il barone rampante")
 
     def test_segna_rientro_inesistente_mostra_errore(self):
         """Segnare rientrato un prestito inesistente deve mostrare un errore, non un falso successo."""
@@ -786,6 +810,77 @@ class TestPuliziaOCR(unittest.TestCase):
             self.assertEqual(ocr._combo_lingue(None), ("", ""))
         finally:
             ocr._LINGUE_INSTALLATE = precedente
+
+    def test_unifica_righe_complementari_evita_doppioni_e_recupera_zone(self):
+        """Integra righe da aree non sovrapposte e scarta doppioni sullo stesso riquadro."""
+        from archivio.ocr import _unifica_righe_complementari
+
+        base = [{"testo": "Italo Calvino", "conf": 90.0, "bbox": (0.1, 0.78, 0.6, 0.86), "altezza_rel": 0.06}]
+        candidate = base + [
+            {"testo": "Italo Calvino.", "conf": 85.0, "bbox": (0.1, 0.78, 0.6, 0.86), "altezza_rel": 0.06},
+            {"testo": "Rumore sovrapposto", "conf": 80.0, "bbox": (0.12, 0.79, 0.58, 0.85), "altezza_rel": 0.05},
+            {"testo": "IL BARONE RAMPANTE", "conf": 84.0, "bbox": (0.1, 0.12, 0.9, 0.28), "altezza_rel": 0.14},
+        ]
+        risultato = _unifica_righe_complementari(base, candidate)
+        self.assertEqual([r["testo"] for r in risultato], ["IL BARONE RAMPANTE", "Italo Calvino"])
+
+    def test_estrai_isbn_valida_checksum(self):
+        from archivio.ocr_analisi import estrai_isbn
+
+        self.assertEqual(estrai_isbn("ISBN 978-88-04-68001-7"), "9788804680017")
+        self.assertEqual(estrai_isbn("9788804680017"), "9788804680017")
+        self.assertEqual(estrai_isbn("ISBN 88-04-49689-4"), "8804496894")
+        # Checksum errato: non deve essere riconosciuto come ISBN valido.
+        self.assertEqual(estrai_isbn("ISBN 978-88-04-68001-8"), "")
+
+    def test_analisi_ocr_libro_editore_e_doppione(self):
+        from archivio.ocr_analisi import analizza_righe_ocr
+
+        righe = [
+            {"testo": "Italo Calvino", "conf": 88, "bbox": (0.1, 0.10, 0.6, 0.16), "altezza_rel": 0.05},
+            {"testo": "Il barone rampante", "conf": 92, "bbox": (0.1, 0.30, 0.9, 0.44), "altezza_rel": 0.14},
+            {"testo": "Mondadori", "conf": 85, "bbox": (0.2, 0.80, 0.5, 0.85), "altezza_rel": 0.04},
+            {"testo": "ISBN 978-88-04-68001-7", "conf": 90, "bbox": (0.2, 0.90, 0.8, 0.94), "altezza_rel": 0.03},
+        ]
+        esistenti = [{"id": 7, "tipo": "Libro", "titolo": "Il barone rampante", "autore": "Italo Calvino", "collocazione_casa": "Salotto"}]
+        esito = analizza_righe_ocr(righe, autori_noti=["Italo Calvino"], elementi_archivio=esistenti)
+
+        sugg = esito["suggerimenti"]
+        self.assertEqual(sugg["tipo"], "Libro")
+        self.assertEqual(sugg["titolo"], "Il barone rampante")
+        self.assertEqual(sugg["autore"], "Italo Calvino")
+        self.assertEqual(sugg["isbn"], "9788804680017")
+        self.assertIn("Mondadori", sugg["note"])
+        self.assertEqual(esito["ruoli_righe"][2]["ruolo"], "editore")
+        self.assertTrue(esito["doppioni_locali"])
+        self.assertEqual(esito["doppioni_locali"][0]["collocazione_casa"], "Salotto")
+
+    def test_analisi_ocr_copione_e_disco(self):
+        from archivio.ocr_analisi import analizza_righe_ocr
+
+        copione = analizza_righe_ocr([
+            {"testo": "La locandina", "conf": 90, "bbox": (0.1, 0.2, 0.8, 0.32), "altezza_rel": 0.12},
+            {"testo": "di Carlo Goldoni", "conf": 88, "bbox": (0.1, 0.38, 0.6, 0.43), "altezza_rel": 0.05},
+            {"testo": "Regia di Giorgio Strehler", "conf": 86, "bbox": (0.1, 0.55, 0.7, 0.60), "altezza_rel": 0.04},
+            {"testo": "Teatro Piccolo di Milano", "conf": 84, "bbox": (0.1, 0.70, 0.7, 0.75), "altezza_rel": 0.04},
+        ])
+        self.assertEqual(copione["suggerimenti"]["tipo"], "Copione")
+        self.assertEqual(copione["suggerimenti"]["titolo"], "La locandina")
+        self.assertEqual(copione["suggerimenti"]["autore"], "Carlo Goldoni")
+        self.assertEqual(copione["suggerimenti"]["regista"], "Giorgio Strehler")
+        self.assertEqual(copione["suggerimenti"]["prima_esibizione_luogo"], "Teatro Piccolo di Milano")
+
+        disco = analizza_righe_ocr([
+            {"testo": "Creuza de ma", "conf": 91, "bbox": (0.1, 0.2, 0.8, 0.34), "altezza_rel": 0.14},
+            {"testo": "Fabrizio De André", "conf": 89, "bbox": (0.1, 0.1, 0.6, 0.15), "altezza_rel": 0.05},
+            {"testo": "Ricordi 1984", "conf": 85, "bbox": (0.1, 0.75, 0.5, 0.80), "altezza_rel": 0.04},
+            {"testo": "33 giri stereo", "conf": 87, "bbox": (0.1, 0.85, 0.5, 0.89), "altezza_rel": 0.04},
+        ])
+        self.assertEqual(disco["suggerimenti"]["tipo"], "CD / Vinile")
+        self.assertEqual(disco["suggerimenti"]["formato"], "Vinile LP")
+        self.assertEqual(disco["suggerimenti"]["titolo"], "Creuza de ma")
+        self.assertEqual(disco["suggerimenti"]["autore"], "Fabrizio De André")
+        self.assertIn("Ricordi", disco["suggerimenti"]["etichetta_anno"])
 
 
 if __name__ == "__main__":

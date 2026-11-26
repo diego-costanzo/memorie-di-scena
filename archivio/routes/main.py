@@ -34,6 +34,8 @@ from werkzeug.utils import secure_filename
 from .. import config
 from ..db import backup_database, get_db
 from ..ocr import estrai_testo_da_immagine, get_ocr_tools, immagine_rgb_su_bianco, stato_lingua_ocr
+from ..ocr_analisi import analizza_righe_ocr, arricchisci_da_cataloghi
+from ..ocr_analisi import analizza_righe_ocr, arricchisci_da_cataloghi
 from ..utils import giorni_di_ritardo
 
 
@@ -187,6 +189,30 @@ def register(app):
 
                 risultato = estrai_testo_da_immagine(rgb_img, max_lato=config.MAX_IMAGE_DIM)
 
+            autori_noti = []
+            elementi_archivio = []
+            try:
+                with get_db() as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT id, tipo, titolo, autore, collocazione_casa FROM elementi")
+                    for r in cur.fetchall():
+                        elementi_archivio.append(dict(r))
+                        if r["autore"]:
+                            autori_noti.append(r["autore"])
+            except Exception as db_err:
+                print(f"[OCR Analisi DB] {db_err}")
+
+            righe_dettaglio = risultato.get("righe_dettaglio") or [
+                {"testo": riga, "conf": risultato.get("confidenza", 70), "bbox": (0.0, 0.0, 0.0, 0.0), "altezza_rel": 0.0}
+                for riga in risultato.get("linee", [])
+            ]
+            analisi = analizza_righe_ocr(
+                righe_dettaglio,
+                autori_noti=autori_noti,
+                elementi_archivio=elementi_archivio,
+            )
+            doppioni = analisi["doppioni_locali"]
+
             return jsonify({
                 "success": True,
                 "linee": risultato["linee"],
@@ -195,6 +221,12 @@ def register(app):
                 "totale_linee": len(risultato["linee"]),
                 "confidenza": risultato["confidenza"],
                 "qualita": risultato["qualita"],
+                "rotazione": risultato.get("rotazione", 0),
+                "lingue": risultato.get("lingue", ""),
+                "suggerimenti": analisi["suggerimenti"],
+                "ruoli": [r["ruolo"] for r in analisi["ruoli_righe"]],
+                "doppione_locale": doppioni[0] if doppioni else None,
+                "doppioni_locali": doppioni,
             })
 
         except Exception as e:
@@ -203,6 +235,44 @@ def register(app):
             # nomi di librerie o stack trace.
             print(f"[OCR Upload Error] {e}")
             return jsonify({"success": False, "errore": "Non è stato possibile leggere la foto. Prova con un'immagine più nitida e ben illuminata."}), 500
+
+    @app.route("/api/ocr/arricchisci", methods=["POST"])
+    def api_ocr_arricchisci():
+        """
+        Cerca nei cataloghi aperti (per ISBN oppure titolo/autore letti dalla
+        foto) e restituisce possibili schede complete per correggere eventuali
+        refusi OCR con un clic.
+        """
+        dati = request.get_json(silent=True)
+        if not isinstance(dati, dict):
+            dati = {}
+
+        def _s(k):
+            v = dati.get(k)
+            return v.strip() if isinstance(v, str) else ""
+
+        isbn = _s("isbn")
+        titolo = _s("titolo")
+        autore = _s("autore")
+        tipo = _s("tipo") or "Libro"
+        if tipo not in ("Libro", "Copione", "CD / Vinile"):
+            tipo = "Libro"
+
+        if not isbn and len(titolo) < 3:
+            return jsonify({
+                "success": False,
+                "errore": "Inserisci almeno il titolo (3+ caratteri) o un codice ISBN valido.",
+            }), 400
+
+        try:
+            risultati = arricchisci_da_cataloghi(isbn=isbn, titolo=titolo, autore=autore, tipo=tipo)
+            return jsonify({"success": True, "risultati": risultati})
+        except Exception as e:
+            print(f"[OCR Arricchisci] Errore: {e}")
+            return jsonify({
+                "success": False,
+                "errore": "Impossibile consultare i cataloghi online in questo momento.",
+            }), 500
 
     @app.route("/backup", methods=["POST"])
     def scarica_backup():
