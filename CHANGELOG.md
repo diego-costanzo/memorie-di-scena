@@ -7,6 +7,22 @@ Le versioni seguono la numerazione semantica: **MAJOR.MINOR.PATCH** (es. 2.0.0).
 
 ---
 
+## [2.1.0] — 26 novembre 2026
+
+Potenziamento completo dell'acquisizione da fotografia (OCR più affidabile e intelligente), compatibile con i dati esistenti.
+
+### Aggiunto
+- **Analisi intelligente dei campi OCR (`archivio/ocr_analisi.py`)**: riconoscimento automatico di tipo (`Libro`, `Copione`, `CD / Vinile`), formato disco (`Vinile LP`, `Vinile 45 giri`, `CD`), codice `ISBN-10`/`ISBN-13` con verifica checksum, regista/teatro/editore e distinzione titolo/autore basata su dimensione dei caratteri e posizione nella foto.
+- **Precompilazione non invasiva e badge ruolo**: la pagina di acquisizione suggerisce i campi vuoti senza sovrascrivere ciò che hai già scritto e mostra badge chiari sulle righe lette (`Titolo suggerito`, `Autore suggerito`, `Editore`, `ISBN`, `Regia`).
+- **Avviso doppione in casa**: se l'opera fotografata sembra già presente nell'archivio locale, viene mostrato subito un promemoria con la collocazione.
+- **Verifica opzionale dai cataloghi (`POST /api/ocr/arricchisci`)**: pulsante «🔍 Verifica e completa dai cataloghi» per correggere eventuali refusi OCR usando Open Library, Google Books o MusicBrainz (per ISBN o titolo/autore), solo su clic esplicito.
+- **5 nuovi test automatici** (57 in totale) sulla fusione spaziale OCR, validazione ISBN, classificazione di libri/copioni/dischi e API di arricchimento.
+
+### Migliorato
+- **Pipeline immagini (`archivio/ocr.py`)**: nuova sequenza varianti (`nitida`, `sparsa` con `PSM 11` per copertine illustrate, `adattiva` denoise senza distorsione da `equalize`, `invertita` per testi chiari su sfondo scuro, `distesa`), upscaling adattato anche alle immagini strette/orizzontali e fusione intelligente delle righe non sovrapposte tramite bounding box (`image_to_data`).
+
+---
+
 ## [2.0.2] — 25 novembre 2026
 
 Audit completo di sicurezza e correzione di bug su backend, OCR, interfaccia e script.

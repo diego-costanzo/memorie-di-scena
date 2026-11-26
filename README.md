@@ -6,8 +6,8 @@
 [![Architettura](https://img.shields.io/badge/Architettura-32--bit%20%7C%2064--bit-2d6a4f.svg)](#-requisiti-di-sistema)
 [![Database](https://img.shields.io/badge/Database-SQLite%20locale%20(100%25%20privato)-40916c.svg)](#-dove-sono-i-tuoi-dati)
 [![Software](https://img.shields.io/badge/Software-100%25%20Open%20Source-52b788.svg)](#-solo-software-libero)
-[![Test](https://img.shields.io/badge/Test-52%20superati-brightgreen.svg)](#-verifiche-e-test)
-[![Versione](https://img.shields.io/badge/Versione-2.0.2-1b4332.svg)](VERSION)
+[![Test](https://img.shields.io/badge/Test-57%20superati-brightgreen.svg)](#-verifiche-e-test)
+[![Versione](https://img.shields.io/badge/Versione-2.1.0-1b4332.svg)](VERSION)
 [![Licenza](https://img.shields.io/badge/Licenza-MIT-blue.svg)](LICENSE)
 
 **In breve** — *Memorie di Scena* è un **gestionale di biblioteca personale** e un **catalogo di copioni teatrali e dischi** che funziona interamente **offline** sul tuo computer, con **Flask** e **SQLite**: cataloga libri, vinili e CD, registra i **prestiti**, conserva un **diario di citazioni** e legge le copertine dalle **foto (OCR)**. È **open source**, gratuito e senza account; i dati non lasciano mai il tuo PC.
@@ -113,7 +113,7 @@ Un vero taccuino integrato, con fogli in stile pergamena, data di stesura in ita
 ### 📸 5. Acquisizione rapida da fotografia (OCR)
 Carica o scatta una foto di copertina o frontespizio: il riconoscimento testo in italiano legge l'immagine e ti aiuta a compilare titolo, autore e note.
 
-La lettura non è una sola passata: il programma raddrizza la foto, la ingrandisce se serve, ne corregge la luce (anche quando un lato è in ombra) e prova più modi di lettura, tenendo quello che ottiene la **confidenza più alta**. Sotto le righe riconosciute compare un piccolo avviso:
+La lettura non è una sola passata: il programma raddrizza la foto, la ingrandisce se serve, ne corregge la luce (anche quando un lato è in ombra) e prova più modi di lettura (incluse modalità per copertine illustrate e scritte chiare su sfondo scuro), integrando senza doppioni le parti lette meglio. In più analizza le righe per **precompilare automaticamente** tipo, titolo, autore, editore, regia o formato disco, legge eventuali codici **ISBN**, ti avvisa se il volume è già a casa e, se sei online e vuoi, completa o corregge i dati con un clic su **«🔍 Verifica e completa dai cataloghi»**. Sotto le righe riconosciute compare un piccolo avviso:
 
 - **✅ Lettura nitida** — tutto bene, puoi procedere.
 - **👍 Lettura discreta** — controlla le righe e correggi se qualcosa non torna.
@@ -193,7 +193,7 @@ Questa versione è una revisione completa del programma, pensata per essere **pi
 11. **Inventario stampabile** — un pulsante esporta tutta la collezione in un file CSV che si apre con LibreOffice o Excel, con i prestiti compresi. Utile per stampare l'elenco o conservarlo fuori dal computer.
 12. **Copia di sicurezza con un clic** — dalla pagina principale, il pulsante «💾 Copia di sicurezza» salva subito una copia del database nella cartella Download, senza chiudere il programma.
 13. **Aggiornamenti automatici sicuri** — il programma controlla da solo, una volta alla settimana, se su GitHub c'è una versione nuova e lo segnala con un avviso e un pulsante. Prima di aggiornare salva una copia dei tuoi dati e, se qualcosa non va, rimette tutto com'era.
-14. **Test automatici e isolamento** — 52 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
+14. **Test automatici e isolamento** — 57 test di verifica e un database temporaneo separato (`MEMORIE_DATA_DIR`) per provare il programma senza toccare i tuoi dati.
 
 ---
 
@@ -329,6 +329,7 @@ Memorie di Scena/
 │   ├── security.py             #   chiave segreta, cookie, protezione CSRF
 │   ├── http.py                 #   sessione HTTP sicura per le ricerche esterne
 │   ├── ocr.py                  #   caricamento OCR solo quando serve
+│   ├── ocr_analisi.py          #   analisi intelligente campi, ISBN e cataloghi
 │   ├── covers.py               #   copertine dal web, con immagine di riserva
 │   ├── search/                 #   la Bussola Culturale
 │   │   ├── __init__.py         #     orchestratore: parallelo, deduplica, rilevanza
@@ -354,7 +355,7 @@ Memorie di Scena/
 ├── avvia.sh                    # avvio silenzioso e apertura del browser
 ├── ferma.sh                    # chiusura ordinata
 ├── aggiorna.sh                 # controlla e applica gli aggiornamenti da GitHub
-├── VERSION                     # versione installata (es. 2.0.2), confrontata con GitHub
+├── VERSION                     # versione installata (es. 2.1.0), confrontata con GitHub
 ├── docs/immagini/              # le immagini che vedi in questa pagina
 ├── requirements.txt            # librerie Python necessarie
 ├── CONTRIBUTING.md             # come proporre un miglioramento
@@ -379,13 +380,13 @@ Il programma sarà raggiungibile su <http://127.0.0.1:5000>. Per chiudere: `CTRL
 
 ## ✅ Verifiche e test
 
-Il progetto include 52 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF e `Host`, header di sicurezza, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia delle righe OCR e upload, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza e sua integrità, calcolo dei giorni di ritardo, sistema di aggiornamento, migrazione dati e limiti di sicurezza nel recupero delle copertine). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
+Il progetto include 57 verifiche automatiche che controllano le parti essenziali (pagina iniziale, rotte registrate, protezione CSRF e `Host`, header di sicurezza, validazione della ricerca, ricerca locale, normalizzazione del testo, pulizia e analisi intelligente OCR, upload, scelta delle lingue di lettura, esportazione dell'inventario, copia di sicurezza e sua integrità, calcolo dei giorni di ritardo, sistema di aggiornamento, migrazione dati e limiti di sicurezza nel recupero delle copertine). I test usano un database temporaneo, **non toccano i tuoi dati** e **non scaricano aggiornamenti reali**.
 
 ```bash
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-Risultato atteso: `Ran 52 tests ... OK`.
+Risultato atteso: `Ran 57 tests ... OK`.
 
 ---
 
